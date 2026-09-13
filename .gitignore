@@ -1,0 +1,31 @@
+# Rust 编译产物；应用项目保留 Cargo.lock，确保依赖版本可复现。
+/target/
+**/*.rs.bk
+
+# Swift 编译、测试、图标生成及下载的 7-Zip 依赖。
+/build/
+
+# 打包后的应用、DMG、ZIP 和校验文件。
+/dist/
+
+# Python 构建和验证脚本的缓存及本地虚拟环境。
+__pycache__/
+*.py[cod]
+/.venv/
+/venv/
+
+# Xcode 本地构建缓存和个人状态。
+/DerivedData/
+xcuserdata/
+*.xcuserstate
+
+# macOS Finder 元数据和 AppleDouble 资源叉副本。
+.DS_Store
+._*
+.AppleDouble/
+.LSOverride
+
+# 编辑器临时文件。
+*.swp
+*.swo
+*~

@@ -1,0 +1,51 @@
+RightClick 安装说明
+==================
+
+系统要求
+Apple 芯片 Mac（M 系列），macOS 14 Sonoma 或更高版本。
+此安装包不支持 Intel Mac、Windows 或 Linux。
+应用内功能全部免费，无需账号、订阅或激活码。
+
+安装
+1. 双击 RightClick 的 .dmg 文件。
+2. 将 RightClick.app 拖到旁边的 Applications（应用程序）文件夹。
+   如果已有旧版，请先从顶部菜单栏退出旧版，再选择替换。
+3. 等待拷贝完成，推出 RightClick 安装磁盘。
+4. 从“应用程序”中打开 RightClick。
+
+首次打开的系统提示
+此分发版本使用本地 ad-hoc 签名，尚未经过 Developer ID 签名或 Apple 公证。
+如果 macOS 提示无法验证开发者或未公证，在确认文件来自可信来源后：
+先尝试打开一次，再到“系统设置 → 隐私与安全性”，找到 RightClick 的提示，
+点击“仍要打开”并完成系统确认。受组织管理的 Mac 可能需要管理员处理。
+Apple 官方说明：https://support.apple.com/zh-cn/102445
+
+启用访达右键菜单
+首次安装并打开应用后，需要手动启用 RightClick Finder：
+• macOS 14：系统设置 → 隐私与安全性 → 扩展 → 访达扩展。
+• 较新 macOS：系统设置 → 通用 → 登录项与扩展 → 访达。
+也可以从 RightClick 的“通用设置”进入扩展设置。
+勾选 RightClick Finder 后，重新打开访达窗口，右击文件或文件夹即可使用。
+Apple 官方说明：https://support.apple.com/zh-cn/guide/mac-help/mtusr003/mac
+
+日常使用
+RightClick 常驻顶部菜单栏，不显示在 Dock。
+单击顶部图标打开控制台；右键图标可退出应用。
+在控制台“右键菜单”中设置分组与子项的层级。
+新建文件、剪切粘贴、压缩和路径拷贝等操作可以直接从访达执行。
+普通文件操作不要求预先授予所有权限；终端、截图等功能按需由系统请求授权。
+可在“通用设置”中设置登录启动。
+
+升级与卸载
+升级前先退出应用，再替换“应用程序”中的 RightClick.app。
+旧版 RustClick 用户请替换或移除旧应用，避免同时保留两个版本。
+既有配置会继续使用；内部数据目录仍为：
+~/Library/Application Support/RustClick/
+卸载时先退出 RightClick、关闭访达扩展开关，再将应用移到废纸篓。
+卸载应用不会自动删除个人配置和自定义模板。
+
+分发内容
+本安装包包含运行所需组件，不需要安装 Rust、Node、Python 或 Homebrew。
+不包含打包者的偏好设置、个人模板或操作历史。
+应用许可、第三方依赖许可及 7-Zip 对应源码位于应用包内：
+RightClick.app/Contents/Resources/Licenses/

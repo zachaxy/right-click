@@ -1,0 +1,29 @@
+[package]
+name = "rustclick"
+version = "0.1.0"
+edition = "2024"
+description = "A local-first macOS context menu utility with a Rust engine"
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+sha1 = "0.10"
+md-5 = "0.10"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp", "tiff", "ico"] }
+qrcode = { version = "0.14", default-features = false, features = ["image"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+libc = "0.2"
+base64 = "0.22"
+encoding_rs = "0.8"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
+
