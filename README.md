@@ -6,7 +6,9 @@
 
 ## 开始使用
 
-本机安装位置：`~/Applications/RightClick.app`。可直接打开本目录下的 `dist/RightClick.app`。
+从 [GitHub Releases](https://github.com/zachaxy/right-click/releases/latest) 下载 DMG 安装包，打开后将 `RightClick.app` 拖到 Applications（应用程序）文件夹。也可下载 ZIP 解压安装。当前提供 Apple Silicon、macOS 14+ 版本，详细步骤见 [安装说明](docs/INSTALL.zh-CN.txt)。
+
+通过构建脚本的 `--install` 参数安装时，应用位于个人目录 `~/Applications/RightClick.app`，与系统的 `/Applications/` 不同。开发构建产物位于 `dist/RightClick.app`。
 
 RightClick 以菜单栏应用运行，不在 Dock 中显示。**单击顶部 RightClick 图标**打开控制台，**右键图标**可打开或退出应用；关闭控制台窗口后仍在后台提供访达右键功能。菜单栏图标可在“通用设置”中开关。
 
@@ -14,6 +16,8 @@ RightClick 以菜单栏应用运行，不在 Dock 中显示。**单击顶部 Rig
 2. 在系统设置的“隐私与安全性 → 扩展 → 访达扩展”中启用 **RightClick Finder**。新版 macOS 的入口可能位于“通用 → 登录项与扩展”。应用“通用设置”也提供系统入口。
 3. 访达中右击文件或空白处，默认进入 **RightClick** 子菜单。可在控制台的 **右键菜单** 页面调整各个功能的层级。窗口工具栏右击 → 自定义工具栏，可添加 **RightClick** 按钮。
 4. 根据需要授予完全磁盘访问、自动化或辅助功能权限。RightClick 不绕过系统权限，也不要求为普通文件操作一次性授予所有权限。
+
+“前往授权”只打开完全磁盘访问设置页。如果列表中没有 RightClick，请点击“＋”并选择实际安装的 `RightClick.app`。使用 `--install` 安装的用户可在选择窗口按 `⌘⇧G`，输入 `~/Applications/` 找到应用；启用后按系统提示重新打开应用。
 
 访达菜单只有“打开 RightClick 操作台”会显示主控制台。其余操作按需要直接执行或使用独立窗口：
 
@@ -63,7 +67,7 @@ RightClick 以菜单栏应用运行，不在 Dock 中显示。**单击顶部 Rig
 - 外接硬盘、云盘、登录启动、AirDrop、壁纸、自动化、截图依赖当前设备和系统授权。代码已实现，并不代表这些入口在所有硬件/系统版本上均完成实机验证。
 - 使用本地 ad-hoc 签名，**未经过 Developer ID 签名或 Apple 公证**。接收者首次打开可能需要在系统设置中确认；若要免去未公证提示，需要 Developer ID 证书和 Apple 公证。
 
-更详细的对应关系见 [功能对照](docs/feature-matrix.md)，验证记录见 [验收记录](docs/verification.md)。
+验证记录见 [验收记录](docs/verification.md)。
 
 ## 构建
 
