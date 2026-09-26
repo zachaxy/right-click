@@ -5,6 +5,7 @@ ROOT=pathlib.Path(__file__).resolve().parents[1]
 APP=ROOT/'dist/RightClick.app/Contents/MacOS/RightClick'
 with tempfile.TemporaryDirectory(prefix='rustclick-smoke-') as tmp:
  root=pathlib.Path(tmp);env={**os.environ,'RUSTCLICK_DATA_DIR':str(root/'state')}
+ env.pop('RUSTCLICK_7ZZ',None)
  def call(**request):
   result=subprocess.run([str(APP),'--request',json.dumps(request)],capture_output=True,text=True,env=env)
   response=json.loads(result.stdout)

@@ -28,6 +28,13 @@ def project_version(root=ROOT):
     return version
 
 
+def bundle_version(version):
+    # The first release used build number 1. Keep future 0.x releases above it
+    # so macOS does not consider the app or Finder extension a downgrade.
+    major, minor, patch = version.split('.')
+    return f'{int(major) + 1}.{minor}.{patch}'
+
+
 def digest(path):
     with path.open('rb') as stream:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
@@ -72,3 +79,7 @@ def sevenzip_binary():
     if not re.search(rf'^7-Zip .*\b{re.escape(SEVENZIP_VERSION)}\b', banner, re.MULTILINE):
         raise RuntimeError(f'Expected 7-Zip {SEVENZIP_VERSION}')
     return binary
+
+
+if __name__ == '__main__':
+    print(sevenzip_binary())

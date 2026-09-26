@@ -91,6 +91,7 @@ python3 scripts/package.py
 脚本检查架构、最低 macOS 版本、动态库依赖和签名，创建镜像后只读挂载，逐文件比对并从镜像执行隔离的文件新建、加密压缩及解压检查。完整接收者说明见 [安装说明](docs/INSTALL.zh-CN.txt)。
 
 ```sh
+export RUSTCLICK_7ZZ="$(python3 scripts/build_support.py)"
 cargo test
 cargo clippy --all-targets -- -D warnings
 python3 -m unittest discover -s tests -p 'test_release.py' -v
@@ -119,6 +120,8 @@ git push origin v0.1.1
 ```
 
 在仓库的 Actions → Release 中查看进度；成功后可在 Releases 下载新版本。标签必须与 `Cargo.toml`、`Cargo.lock` 一致，且存在非空的对应发版说明。目前只支持正式版 `X.Y.Z`，不接受预发布后缀。
+
+应用和扩展的内部构建号也从同一版本派生，主版本加一，例如 `0.1.1` 对应构建号 `1.1.1`，确保高于早期固定构建号 `1`。对用户显示的版本仍为 `0.1.1`。
 
 也可以在 Actions → Release → Run workflow 手动运行完整构建验证。**手动运行不会创建 Release**，安装包和验证报告保存在该次运行的 Artifacts 中，保留 14 天。普通代码推送不会自动发版，`dist/` 继续由 Git 忽略。
 

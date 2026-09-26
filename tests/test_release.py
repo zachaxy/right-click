@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from build_support import project_version
+from build_support import bundle_version, project_version
 from release import metadata, validate_artifacts
 
 
@@ -26,6 +26,13 @@ class ReleaseValidationTests(unittest.TestCase):
         self.assertEqual(metadata(self.root, 'v0.1.1'),
                          {'version': '0.1.1', 'notes': 'docs/releases/v0.1.1.md'})
         self.assertEqual(metadata(self.root)['version'], '0.1.1')
+
+    def test_build_numbers_increase_from_legacy_release(self):
+        previous = (1, 0, 0)
+        for version in ['0.1.0', '0.1.1', '0.2.0', '1.0.0']:
+            current = tuple(map(int, bundle_version(version).split('.')))
+            self.assertGreater(current, previous)
+            previous = current
 
     def test_wrong_tag_and_nonstable_version_rejected(self):
         for tag in ['v0.1.0', '0.1.1', 'v0.1.1-rc1', 'v0.1.1\nversion=bad']:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build a self-contained local macOS .app; no Xcode account required."""
 import os, pathlib, plistlib, shutil, subprocess, sys
-from build_support import project_version, sevenzip_binary
+from build_support import bundle_version, project_version, sevenzip_binary
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
 BUILD=ROOT/'build'; BUILD.mkdir(exist_ok=True)
@@ -34,7 +34,7 @@ run('swiftc','scripts/icon.swift','-o',BUILD/'make-icon','-framework','Cocoa')
 run(BUILD/'make-icon',BUILD/'RustClick.iconset')
 run('iconutil','-c','icns',BUILD/'RustClick.iconset','-o',res/'AppIcon.icns')
 # The bundled Homebrew 7zz binary requires macOS 14, even though the UI targets 13.
-base={'CFBundleInfoDictionaryVersion':'6.0','CFBundleShortVersionString':version,'CFBundleVersion':version,'LSMinimumSystemVersion':'14.0','CFBundleSupportedPlatforms':['MacOSX']}
+base={'CFBundleInfoDictionaryVersion':'6.0','CFBundleShortVersionString':version,'CFBundleVersion':bundle_version(version),'LSMinimumSystemVersion':'14.0','CFBundleSupportedPlatforms':['MacOSX']}
 info={**base,'CFBundleExecutable':'RightClick','CFBundleIdentifier':'dev.rustclick.app','CFBundleName':'RightClick','CFBundleDisplayName':'RightClick','CFBundlePackageType':'APPL','LSUIElement':True,'CFBundleIconFile':'AppIcon','NSHighResolutionCapable':True,'NSPrincipalClass':'NSApplication','LSApplicationCategoryType':'public.app-category.utilities','NSAppleEventsUsageDescription':'RightClick 使用自动化在选定目录打开终端，或读取访达中你选中的文件。','CFBundleURLTypes':[{'CFBundleURLName':'RightClick Finder actions','CFBundleURLSchemes':['rustclick'],'CFBundleTypeRole':'Viewer'}],'NSServices':[{'NSMenuItem':{'default':'RightClick / 生成二维码'},'NSMessage':'generateQR','NSPortName':'RightClick','NSSendTypes':['NSStringPboardType','public.utf8-plain-text']},{'NSMenuItem':{'default':'RightClick / 翻译文字'},'NSMessage':'translateGoogle','NSPortName':'RightClick','NSSendTypes':['NSStringPboardType','public.utf8-plain-text']}]}
 (ext/'Info.plist').write_bytes(plistlib.dumps({**base,'CFBundleIdentifier':'dev.rustclick.app.finder','CFBundleExecutable':'RightClickFinder','CFBundleName':'RightClick Finder','CFBundleDisplayName':'RightClick Finder','CFBundlePackageType':'XPC!','NSPrincipalClass':'NSApplication','LSUIElement':True,'NSExtension':{'NSExtensionPointIdentifier':'com.apple.FinderSync','NSExtensionPrincipalClass':'RustClickFinderSync','NSExtensionAttributes':{}}}))
 (contents/'Info.plist').write_bytes(plistlib.dumps(info))

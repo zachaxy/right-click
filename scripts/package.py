@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 
-from build_support import (SOURCE_NAME, SOURCE_URL, SOURCE_SHA256, digest,
+from build_support import (SOURCE_NAME, SOURCE_URL, SOURCE_SHA256, bundle_version, digest,
                            download_verified, project_version)
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -85,10 +85,10 @@ def include_licenses():
 def check_binaries():
     info = plistlib.loads((APP / 'Contents/Info.plist').read_bytes())
     version = project_version()
-    if info['CFBundleShortVersionString'] != version or info['CFBundleVersion'] != version:
+    if info['CFBundleShortVersionString'] != version or info['CFBundleVersion'] != bundle_version(version):
         raise RuntimeError('App version does not match Cargo.toml')
     extension = plistlib.loads((APP / 'Contents/PlugIns/RightClickFinder.appex/Contents/Info.plist').read_bytes())
-    if extension['CFBundleShortVersionString'] != version or extension['CFBundleVersion'] != version:
+    if extension['CFBundleShortVersionString'] != version or extension['CFBundleVersion'] != bundle_version(version):
         raise RuntimeError('Finder extension version does not match Cargo.toml')
     html = (APP / 'Contents/Resources/ui/index.html').read_text()
     if '__RIGHTCLICK_VERSION__' in html or f'<span>v{version}</span>' not in html:
@@ -123,6 +123,8 @@ def smoke(app, temporary):
         app / 'Contents/Frameworks/libRustClickUI.dylib')
     executable = app / 'Contents/MacOS/RightClick'
     environment = {**os.environ, 'RUSTCLICK_DATA_DIR': str(temporary / 'preferences')}
+    # Validate the bundled binary even if an override was used during the build.
+    environment.pop('RUSTCLICK_7ZZ', None)
 
     def call(**request):
         result = run(executable, '--request', json.dumps(request), capture=True, text=True,
