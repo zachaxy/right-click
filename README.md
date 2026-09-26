@@ -107,6 +107,7 @@ python3 scripts/test_native.py
 src/                    Rust 引擎、文件/归档/图片/模板、CLI 和 FFI
 native/App.swift        AppKit 窗口、WebKit、系统能力的薄适配层
 native/FinderSync.swift Finder 右键和工具栏扩展
+native/FinderVolumeMonitor.swift 登记已挂载磁盘，并在插入、卸载和改名时更新监听目录
 native/FinderMenu.swift 控制台共享功能目录、每个动作的菜单层级与显示规则
 native/MenuActionStore.swift 通过 tag 保留系统复制后的菜单动作
 native/FinderRequestRouting.swift 显式操作台与独立操作分发

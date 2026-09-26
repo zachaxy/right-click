@@ -12,7 +12,7 @@ run(cargo,'build','--release','--locked')
 arch=subprocess.check_output(['uname','-m'],text=True).strip()
 target=f'{arch}-apple-macosx13.0'
 run('swiftc','-emit-library','-O','-target',target,'-module-name','RustClickUI','native/MenuActionStore.swift','native/FinderMenu.swift','native/FinderRequestRouting.swift','native/FinderActions.swift','native/FinderActionUI.swift','native/App.swift','-o',BUILD/'libRustClickUI.dylib','-Xlinker','-install_name','-Xlinker','@rpath/libRustClickUI.dylib','-framework','Cocoa','-framework','WebKit','-framework','FinderSync','-framework','ServiceManagement')
-run('swiftc','-emit-executable','-parse-as-library','-O','-target',target,'-module-name','RustClickFinder','native/FinderMenu.swift','native/MenuActionStore.swift','native/FinderRequestRouting.swift','native/FinderSync.swift','-o',BUILD/'RustClickFinder','-framework','Cocoa','-framework','FinderSync','-Xlinker','-e','-Xlinker','_NSExtensionMain')
+run('swiftc','-emit-executable','-parse-as-library','-O','-target',target,'-module-name','RustClickFinder','native/FinderMenu.swift','native/MenuActionStore.swift','native/FinderRequestRouting.swift','native/FinderVolumeMonitor.swift','native/FinderSync.swift','-o',BUILD/'RustClickFinder','-framework','Cocoa','-framework','FinderSync','-Xlinker','-e','-Xlinker','_NSExtensionMain')
 if APP.exists(): shutil.rmtree(APP)
 contents=APP/'Contents';res=contents/'Resources';mac=contents/'MacOS';frameworks=contents/'Frameworks';ext=contents/'PlugIns/RightClickFinder.appex/Contents'
 for p in [res,mac,frameworks,ext/'MacOS']:p.mkdir(parents=True,exist_ok=True)

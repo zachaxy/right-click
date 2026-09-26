@@ -5,7 +5,19 @@ import FinderSync
 final class RustClickFinderSync:FIFinderSync {
     var settings:[String:Any]=[:]
     let actions=MenuActionStore()
-    override init(){super.init();FIFinderSyncController.default().directoryURLs=[URL(fileURLWithPath:"/")];DistributedNotificationCenter.default().addObserver(self,selector:#selector(update(_:)),name:Notification.Name("dev.rustclick.config"),object:nil);DistributedNotificationCenter.default().postNotificationName(Notification.Name("dev.rustclick.requestConfig"),object:nil,userInfo:nil,deliverImmediately:true);loadConfig()}
+    private var volumeMonitor: FinderVolumeMonitor?
+    override init() {
+        super.init()
+        volumeMonitor = FinderVolumeMonitor {
+            FIFinderSyncController.default().directoryURLs = $0
+        }
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(update(_:)),
+            name: Notification.Name("dev.rustclick.config"), object: nil)
+        DistributedNotificationCenter.default().postNotificationName(
+            Notification.Name("dev.rustclick.requestConfig"), object: nil,
+            userInfo: nil, deliverImmediately: true)
+        loadConfig()
+    }
     func loadConfig(){if let s=NSPasteboard(name:NSPasteboard.Name("dev.rustclick.menuConfig")).string(forType:.string),let data=s.data(using:.utf8),let value=(try? JSONSerialization.jsonObject(with:data)) as? [String:Any]{settings=value}}
     @objc func update(_ n:Notification){if let s=n.object as? String,let data=s.data(using:.utf8),let c=(try? JSONSerialization.jsonObject(with:data)) as? [String:Any]{settings=c}}
     override var toolbarItemName:String{"RightClick"}

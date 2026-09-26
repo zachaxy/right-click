@@ -12,6 +12,7 @@ CASES = [
     ("menu", ["MenuActionStore.swift"]),
     ("layout", ["MenuActionStore.swift", "FinderMenu.swift"]),
     ("routing", ["FinderRequestRouting.swift"]),
+    ("volumes", ["FinderVolumeMonitor.swift"]),
     ("actions", ["FinderActions.swift"]),
 ]
 for name, sources in CASES:
