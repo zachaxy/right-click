@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Build and verify a self-contained, ad-hoc signed Apple Silicon DMG/ZIP."""
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -11,13 +10,13 @@ import subprocess
 import sys
 import tempfile
 
+from build_support import (SOURCE_NAME, SOURCE_URL, SOURCE_SHA256, digest,
+                           download_verified, project_version)
+
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
 BUILD = ROOT / 'build'
 APP = DIST / 'RightClick.app'
-SOURCE_NAME = '7z2603-src.tar.xz'
-SOURCE_URL = f'https://github.com/ip7z/7zip/releases/download/26.03/{SOURCE_NAME}'
-SOURCE_SHA256 = '9cbde5099c6deb73691b0579063da5827522ccbbcba3f0020fd04e8c8c16c0d4'
 
 
 def run(*args, capture=False, **kwargs):
@@ -27,11 +26,6 @@ def run(*args, capture=False, **kwargs):
 
 def output(*args):
     return run(*args, capture=True, text=True).stdout
-
-
-def digest(path):
-    with path.open('rb') as stream:
-        return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
 def bundle_manifest(app):
@@ -72,14 +66,7 @@ def include_licenses():
     seven = APP / 'Contents/Resources/bin/7zz'
     if '26.03' not in output(seven, 'i').splitlines()[1]:
         raise RuntimeError('Update the corresponding source archive for this 7-Zip version')
-    archive = BUILD / SOURCE_NAME
-    if not archive.exists() or digest(archive) != SOURCE_SHA256:
-        download = archive.with_suffix('.download')
-        run('curl', '--fail', '--location', '--retry', '2', '--max-time', '90',
-            '--output', download, SOURCE_URL)
-        if digest(download) != SOURCE_SHA256:
-            raise RuntimeError('7-Zip source checksum mismatch')
-        download.replace(archive)
+    archive = download_verified(SOURCE_URL, BUILD / SOURCE_NAME, SOURCE_SHA256)
     shutil.copy2(archive, licenses / SOURCE_NAME)
     (licenses / '7ZIP-SOURCE.txt').write_text(
         '7-Zip 26.03 — unmodified upstream source included alongside the executable.\n'
@@ -97,6 +84,15 @@ def include_licenses():
 
 def check_binaries():
     info = plistlib.loads((APP / 'Contents/Info.plist').read_bytes())
+    version = project_version()
+    if info['CFBundleShortVersionString'] != version or info['CFBundleVersion'] != version:
+        raise RuntimeError('App version does not match Cargo.toml')
+    extension = plistlib.loads((APP / 'Contents/PlugIns/RightClickFinder.appex/Contents/Info.plist').read_bytes())
+    if extension['CFBundleShortVersionString'] != version or extension['CFBundleVersion'] != version:
+        raise RuntimeError('Finder extension version does not match Cargo.toml')
+    html = (APP / 'Contents/Resources/ui/index.html').read_text()
+    if '__RIGHTCLICK_VERSION__' in html or f'<span>v{version}</span>' not in html:
+        raise RuntimeError('UI version does not match Cargo.toml')
     minimum = tuple(map(int, info['LSMinimumSystemVersion'].split('.')))
     binaries = []
     for path in sorted(APP.rglob('*')):
@@ -136,6 +132,8 @@ def smoke(app, temporary):
             raise RuntimeError(response)
         return response['data']
 
+    if call(cmd='state')['version'] != project_version():
+        raise RuntimeError('Rust engine version does not match Cargo.toml')
     created = call(cmd='create', dir=str(temporary), name='分发验证', format='md')
     original = Path(created['paths'][0])
     for format_name in ['zip', '7z']:

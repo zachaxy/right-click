@@ -71,7 +71,7 @@ RightClick 以菜单栏应用运行，不在 Dock 中显示。**单击顶部 Rig
 
 ## 构建
 
-需要 Rust stable、macOS Command Line Tools（Swift/Cocoa）和 Python 3。7z 使用 Homebrew 官方 bottle 内的独立可执行文件。
+需要 Apple Silicon Mac、Rust/rustup、macOS Command Line Tools（Swift/Cocoa）和 Python 3.11+。Rust 版本由 `rust-toolchain.toml` 固定；7z 从 Homebrew 官方下载固定的 26.03 Sonoma/arm64 bottle 并校验 SHA-256，不依赖本机 Homebrew 版本。
 
 ```sh
 export PATH="$HOME/.cargo/bin:$PATH"
@@ -86,13 +86,14 @@ python3 scripts/build.py --install
 python3 scripts/package.py
 ```
 
-重新构建后生成 `dist/RightClick-0.1.0-arm64.dmg`、ZIP 和 SHA-256 校验文件。DMG 内有应用、指向“应用程序”的快捷方式和中文安装说明；拖动安装即可，接收者不需要开发环境。包内附带 RightClick 与 Rust 依赖许可证，以及 7-Zip 26.03 对应源码和构建说明。不打包本机偏好、模板、历史记录或开发目录。
+重新构建后生成 `dist/RightClick-<版本号>-arm64.dmg`、ZIP 和 SHA-256 校验文件。版本号统一读取 `Cargo.toml`，并写入应用、访达扩展和界面。DMG 内有应用、指向“应用程序”的快捷方式和中文安装说明；拖动安装即可，接收者不需要开发环境。包内附带 RightClick 与 Rust 依赖许可证，以及 7-Zip 26.03 对应源码和构建说明。不打包本机偏好、模板、历史记录或开发目录。
 
 脚本检查架构、最低 macOS 版本、动态库依赖和签名，创建镜像后只读挂载，逐文件比对并从镜像执行隔离的文件新建、加密压缩及解压检查。完整接收者说明见 [安装说明](docs/INSTALL.zh-CN.txt)。
 
 ```sh
 cargo test
 cargo clippy --all-targets -- -D warnings
+python3 -m unittest discover -s tests -p 'test_release.py' -v
 node --test tests/ui.cjs tests/menu-ui.cjs
 python3 scripts/smoke.py
 # Finder 菜单层级与参数、窗口路由和真实 Rust 操作流程
@@ -100,6 +101,28 @@ python3 scripts/test_native.py
 ```
 
 首次运行会从 Rust 官方源、crates.io、Homebrew 获取构建依赖。应用运行时不需要 Rust、Node 或 Python。
+
+### GitHub 自动发版
+
+推送 `vX.Y.Z` 标签会触发 [Release 工作流](.github/workflows/release.yml)，在 macOS ARM64 环境中运行测试、构建和验证，再创建 Release 并上传 DMG、ZIP、SHA-256 文件。流程使用 GitHub 自动提供的令牌，不需要配置个人访问令牌。
+
+以发布 `v0.1.1` 为例：
+
+1. 将 `Cargo.toml` 的版本改为 `0.1.1`，运行 `cargo check` 更新 `Cargo.lock`。
+2. 编写 `docs/releases/v0.1.1.md`，记录本次功能、修复、安装要求和已知限制。
+3. 提交版本与说明文件，推送代码，再创建并推送标签：
+
+```sh
+git push origin main
+git tag -a v0.1.1 -m "RightClick v0.1.1"
+git push origin v0.1.1
+```
+
+在仓库的 Actions → Release 中查看进度；成功后可在 Releases 下载新版本。标签必须与 `Cargo.toml`、`Cargo.lock` 一致，且存在非空的对应发版说明。目前只支持正式版 `X.Y.Z`，不接受预发布后缀。
+
+也可以在 Actions → Release → Run workflow 手动运行完整构建验证。**手动运行不会创建 Release**，安装包和验证报告保存在该次运行的 Artifacts 中，保留 14 天。普通代码推送不会自动发版，`dist/` 继续由 Git 忽略。
+
+工作流不会覆盖已发布的同名版本。如果上传中断留下草稿，先确认并删除对应草稿，再重跑失败任务；已经正式发布的版本应使用新版本号。自动构建沿用 ad-hoc 签名，Developer ID 签名和 Apple 公证需另外配置。
 
 ## 结构
 

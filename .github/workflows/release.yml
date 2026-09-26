@@ -1,0 +1,96 @@
+name: Release
+run-name: "${{ github.event_name == 'push' && github.ref_name || 'Build verification (no release)' }}"
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '14.0'
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: Validate version and release notes
+        id: release
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          test "$(uname -m)" = arm64
+          if [ "$EVENT_NAME" = push ]; then
+            python3 scripts/release.py --tag "$GITHUB_REF_NAME"
+          else
+            python3 scripts/release.py
+          fi
+
+      - name: Load pinned Rust toolchain
+        run: rustup show
+
+      - name: Test source and release validation
+        run: |
+          python3 -m unittest discover -s tests -p 'test_release.py' -v
+          cargo test --locked
+          cargo clippy --locked --all-targets -- -D warnings
+          node --test tests/ui.cjs tests/menu-ui.cjs
+
+      - name: Build and verify DMG and ZIP
+        run: python3 scripts/package.py
+
+      - name: Test packaged app and Finder integration
+        run: |
+          python3 scripts/test_native.py
+          python3 scripts/smoke.py
+          python3 scripts/release.py --artifacts
+
+      - name: Preserve verified downloads and build report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: RightClick-${{ steps.release.outputs.version }}-arm64
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            dist/RightClick-${{ steps.release.outputs.version }}-arm64.dmg
+            dist/RightClick-${{ steps.release.outputs.version }}-arm64.zip
+            dist/RightClick-${{ steps.release.outputs.version }}-arm64.sha256
+            build/distribution-verification.json
+
+      - name: Publish tagged release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.release.outputs.version }}
+          NOTES: ${{ steps.release.outputs.notes }}
+        run: |
+          python3 scripts/release.py --tag "$GITHUB_REF_NAME" --artifacts
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/RightClick-$VERSION-arm64.dmg" \
+            "dist/RightClick-$VERSION-arm64.zip" \
+            "dist/RightClick-$VERSION-arm64.sha256" \
+            --verify-tag --title "RightClick $GITHUB_REF_NAME" --notes-file "$NOTES"
