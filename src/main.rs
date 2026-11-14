@@ -64,6 +64,13 @@ fn main() -> anyhow::Result<()> {
             "请运行打包后的 RightClick.app：{}",
             CStr::from_ptr(libc::dlerror()).to_string_lossy()
         );
+        if args.get(1).map(String::as_str) == Some("--clipboard-mcp") {
+            let entry = libc::dlsym(h, c"rustclick_clipboard_mcp".as_ptr());
+            anyhow::ensure!(!entry.is_null(), "剪贴板 MCP 适配器未完整加载");
+            let run: unsafe extern "C" fn() = std::mem::transmute(entry);
+            run();
+            return Ok(());
+        }
         let start = libc::dlsym(h, c"rustclick_start".as_ptr());
         let native = libc::dlsym(h, c"rustclick_native".as_ptr());
         anyhow::ensure!(

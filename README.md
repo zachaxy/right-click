@@ -45,6 +45,7 @@ RightClick 以菜单栏应用运行，不在 Dock 中显示。**单击顶部 Rig
 
 ## 功能
 
+- **剪贴板**：默认 `⌥⌘V` 唤出参考 uTools 的紧凑面板，顶部搜索与分类、单击勾选批量操作、方向键选择当前项、回车或双击粘贴，右侧操作栏提供常用动作。支持文字、链接、富文本、图片、文件历史，本机 OCR、来源/日期筛选、固定板、文字编辑和图片旋转；原格式/纯文本/多选粘贴、顺序粘贴、隐私规则、定时暂停及默认关闭的只读 MCP。首次需自行开启记录。见 [使用说明](docs/clipboard.md) 和 [Paste 功能调研](docs/paste-feature-research.md)。
 - **新建文件**：TXT、Markdown、Word、Excel、PowerPoint、RTF、XML、JSON、HTML、Rust、Python、Shell、SVG、PSD、AI（EPS 兼容格式）；自定义任意文件名和扩展名；导入任意文件或文档包作为模板。
 - **文件管理**：批量复制/移动、剪切与粘贴、取消剪切、常用目录、重命名、按文件名建目录、解散目录、桌面符号链接、文件隐藏和扩展名显示、当前用户写权限、移到废纸篓、永久删除。
 - **开发工具**：终端/iTerm2 新窗口或新标签页、VS Code、Typora、JetBrains、Obsidian 等；可以添加任何已安装应用。
@@ -132,6 +133,10 @@ git push origin v0.1.1
 ```text
 src/                    Rust 引擎、文件/归档/图片/模板、CLI 和 FFI
 native/App.swift        AppKit 窗口、WebKit、系统能力的薄适配层
+native/ClipboardStore.swift 剪贴板历史、持久化、隐私规则和本机 OCR
+native/ClipboardPanel.swift 原生历史面板、编辑、收藏和设置
+native/ClipboardCoordinator.swift 全局快捷键、焦点恢复和顺序粘贴
+native/ClipboardMCP.swift 默认关闭的只读 stdio MCP 接口
 native/FinderSync.swift Finder 右键和工具栏扩展
 native/FinderVolumeMonitor.swift 登记已挂载磁盘，并在插入、卸载和改名时更新监听目录
 native/FinderMenu.swift 控制台共享功能目录、每个动作的菜单层级与显示规则

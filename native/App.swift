@@ -18,6 +18,10 @@ func nativeWork(_ req:[String:Any])throws->[String:Any] {
     let cmd=req["cmd"] as? String ?? ""
     let paths=(req["paths"] as? [String] ?? []).map{URL(fileURLWithPath:$0)}
     switch cmd {
+    case "clipboard_show": controller.clipboard.show(); return controller.clipboard.status()
+    case "clipboard_settings": controller.clipboard.showSettings(); return controller.clipboard.status()
+    case "clipboard_status": return controller.clipboard.status()
+    case "clipboard_pause": controller.clipboard.togglePaused(); return controller.clipboard.status()
     case "choose":
         let panel=NSOpenPanel();panel.canChooseFiles=req["kind"] as? String != "directory";panel.canChooseDirectories=true;panel.allowsMultipleSelection=req["multiple"] as? Bool ?? false;panel.prompt="选择";panel.message=req["message"] as? String ?? "选择要使用的文件或目录";NSApp.activate(ignoringOtherApps:true);return ["paths":panel.runModal() == .OK ? panel.urls.map{$0.path}:[]]
     case "clipboard": NSPasteboard.general.clearContents();NSPasteboard.general.setString(req["text"] as? String ?? "",forType:.string);return ["copied":true]
@@ -70,6 +74,7 @@ func failure(_ text:String)->NSError{NSError(domain:"RightClick",code:1,userInfo
 
 class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavigationDelegate,NSWindowDelegate {
     let finderUI = DesktopFinderUI()
+    let clipboard = ClipboardCoordinator()
     var window:NSWindow!;var web:WKWebView!;var status:NSStatusItem?;var panels=[NSPanel]();var config=[String:Any]();var pending:[[String:Any]]=[];var ready=false;var monitor:Any?;var floatingMenu:NSMenu?;var finderPaths=[String]();var finderDir=""
     func applicationDidFinishLaunching(_ notification:Notification){
         let menu=NSMenu();let root=NSMenuItem();menu.addItem(root);let app=NSMenu();app.addItem(withTitle:"关于 RightClick",action:#selector(about),keyEquivalent:"");app.addItem(.separator());app.addItem(withTitle:"显示 RightClick",action:#selector(show),keyEquivalent:"1");app.addItem(withTitle:"退出 RightClick",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q");root.submenu=app;let edit=NSMenuItem();edit.title="编辑";menu.addItem(edit);let em=NSMenu(title:"编辑");for (t,a,k) in [("撤销","undo:","z"),("剪切","cut:","x"),("拷贝","copy:","c"),("粘贴","paste:","v"),("全选","selectAll:","a")]{em.addItem(withTitle:t,action:Selector(a),keyEquivalent:k)};edit.submenu=em;NSApp.mainMenu=menu
@@ -79,7 +84,9 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
         DistributedNotificationCenter.default().addObserver(self,selector:#selector(publish),name:Notification.Name("dev.rustclick.requestConfig"),object:nil)
         worker.async {let s=engine(["cmd":"state"]);let c=(s["data"] as? [String:Any])?["config"] as? [String:Any] ?? [:];DispatchQueue.main.async{self.apply(c)}}
         NSApp.servicesProvider=self
+        clipboard.start()
     }
+    func applicationWillTerminate(_ notification:Notification) { clipboard.stop() }
     func webView(_ webView:WKWebView,decidePolicyFor action:WKNavigationAction,decisionHandler:@escaping(WKNavigationActionPolicy)->Void){let url=action.request.url;decisionHandler(url?.isFileURL==true && url!.path.hasPrefix(Bundle.main.resourceURL!.appendingPathComponent("ui").path+"/") ? .allow:.cancel)}
     func userContentController(_ c:WKUserContentController,didReceive message:WKScriptMessage){guard message.frameInfo.isMainFrame,let body=message.body as? [String:Any],let id=body["id"] as? Int,let req=body["request"] as? [String:Any]else{return};if req["cmd"] as? String == "ready"{ready=true;for v in pending{incoming(v)};pending=[];resolve(id,["ok":true,"data":[:]]);return};worker.async{let result=engine(req);DispatchQueue.main.async{self.resolve(id,result)}}}
     func resolve(_ id:Int,_ v:[String:Any]){web.evaluateJavaScript("window.__resolve(\(id),\(encode(v)))",completionHandler:nil)}
@@ -113,11 +120,29 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
         let menu = NSMenu(title:"RightClick")
         let open = menu.addItem(withTitle:"打开 RightClick",action:#selector(show),keyEquivalent:"")
         open.target = self
+        let history = menu.addItem(withTitle:"剪贴板历史…",action:#selector(showClipboard),keyEquivalent:"")
+        history.target = self
+        let clipboardSettings = menu.addItem(withTitle:"剪贴板设置…",action:#selector(showClipboardSettings),keyEquivalent:"")
+        clipboardSettings.target = self
+        let pause = menu.addItem(withTitle:clipboard.store.settings.paused ? "继续剪贴板记录" : "暂停剪贴板记录",action:#selector(pauseClipboard),keyEquivalent:"")
+        pause.target = self; pause.isEnabled = clipboard.store.settings.enabled
+        let stack = menu.addItem(withTitle:clipboard.stack.active ? "结束顺序粘贴（剩余 \(clipboard.stack.ids.count) 条）" : "开始顺序粘贴",action:#selector(toggleClipboardStack),keyEquivalent:"")
+        stack.target = self
+        if clipboard.stack.active {
+            let next = menu.addItem(withTitle:"粘贴队列下一条",action:#selector(pasteClipboardNext),keyEquivalent:""); next.target = self
+            let reverse = menu.addItem(withTitle:"反转粘贴队列",action:#selector(reverseClipboardStack),keyEquivalent:""); reverse.target = self
+        }
         menu.addItem(.separator())
         let quit = menu.addItem(withTitle:"退出 RightClick",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"")
         quit.target = NSApp
         menu.popUp(positioning:nil,at:NSPoint(x:0,y:sender.bounds.minY-4),in:sender)
     }
+    @objc func showClipboard() { clipboard.show() }
+    @objc func showClipboardSettings() { clipboard.showSettings() }
+    @objc func pauseClipboard() { clipboard.togglePaused() }
+    @objc func toggleClipboardStack() { clipboard.toggleStack() }
+    @objc func pasteClipboardNext() { clipboard.pasteNext() }
+    @objc func reverseClipboardStack() { clipboard.reverseStack() }
     @objc func about(){let a=NSAlert();a.messageText="RightClick 0.1.0";a.informativeText="Rust 驱动的 macOS 右键工具箱\n所有功能免费，无账号、无订阅。\n独立实现，与 Better365 无关联。";a.runModal()}
     @objc func publish(){let text=encode(config);let board=NSPasteboard(name:NSPasteboard.Name("dev.rustclick.menuConfig"));board.clearContents();board.setString(text,forType:.string);DistributedNotificationCenter.default().postNotificationName(Notification.Name("dev.rustclick.config"),object:text,userInfo:nil,deliverImmediately:true)}
     func apply(_ config:[String:Any]){self.config=config;if config["showTray"] as? Bool ?? true{if status==nil{status=NSStatusBar.system.statusItem(withLength:NSStatusItem.squareLength);status?.button?.image=NSImage(systemSymbolName:"cursorarrow.click",accessibilityDescription:"RightClick");status?.button?.action = #selector(trayAction(_:));status?.button?.target=self;status?.button?.toolTip="RightClick · 单击打开，右键查看更多";status?.button?.setAccessibilityLabel("RightClick");status?.button?.sendAction(on:[.leftMouseUp,.rightMouseUp])}}else if let s=status{NSStatusBar.system.removeStatusItem(s);status=nil};publish();if let m=monitor{NSEvent.removeMonitor(m);monitor=nil};if config["cloudShortcut"] as? Bool ?? false{monitor=NSEvent.addGlobalMonitorForEvents(matching:[.rightMouseDown,.otherMouseDown]){e in if (e.type == .rightMouseDown && e.modifierFlags.contains(.shift)) || e.type == .otherMouseDown{self.cloudMenu()}}}}
