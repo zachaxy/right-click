@@ -11,6 +11,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build"
 BUILD.mkdir(exist_ok=True)
 CASES = [
+    ("input-source", ["InputSourceSettings.swift", "InputSourceCoordinator.swift"]),
+    ("english-punctuation", ["EnglishPunctuation.swift"]),
     ("clipboard", ["ClipboardStore.swift"]),
     ("clipboard-panel", ["ClipboardStore.swift", "ClipboardPanel.swift"]),
     ("clipboard-mcp", ["ClipboardStore.swift", "ClipboardMCP.swift"]),

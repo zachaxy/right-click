@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 """Build a self-contained local macOS .app; no Xcode account required."""
 import os, pathlib, plistlib, shutil, subprocess, sys
-from build_support import bundle_version, project_version, sevenzip_binary
+from build_support import bundle_version, project_version, sevenzip_binary, signing_identity, verify_install_identity
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
 BUILD=ROOT/'build'; BUILD.mkdir(exist_ok=True)
 DIST=ROOT/'dist'; DIST.mkdir(exist_ok=True)
 APP=DIST/'RightClick.app'
 version=project_version()
+identity=signing_identity()
 if os.uname().machine != 'arm64': raise RuntimeError('RightClick distribution builds require an Apple Silicon Mac')
 def run(*args): subprocess.run([str(a) for a in args],check=True)
 cargo=shutil.which('cargo') or str(pathlib.Path.home()/'.cargo/bin/cargo')
 run(cargo,'build','--release','--locked')
 arch=subprocess.check_output(['uname','-m'],text=True).strip()
 target=f'{arch}-apple-macosx13.0'
-run('swiftc','-emit-library','-O','-target',target,'-module-name','RustClickUI','native/MenuActionStore.swift','native/FinderMenu.swift','native/FinderRequestRouting.swift','native/FinderActions.swift','native/FinderActionUI.swift','native/ClipboardStore.swift','native/ClipboardPanel.swift','native/ClipboardStack.swift','native/ClipboardCoordinator.swift','native/ClipboardMCP.swift','native/App.swift','-o',BUILD/'libRustClickUI.dylib','-Xlinker','-install_name','-Xlinker','@rpath/libRustClickUI.dylib','-framework','Cocoa','-framework','WebKit','-framework','FinderSync','-framework','ServiceManagement','-framework','Carbon','-framework','Vision','-framework','Quartz')
+run('swiftc','-emit-library','-O','-target',target,'-module-name','RustClickUI','native/MenuActionStore.swift','native/FinderMenu.swift','native/FinderRequestRouting.swift','native/FinderActions.swift','native/FinderActionUI.swift','native/ClipboardStore.swift','native/ClipboardPanel.swift','native/ClipboardStack.swift','native/ClipboardCoordinator.swift','native/ClipboardMCP.swift','native/InputSourceSettings.swift','native/InputSourceCoordinator.swift','native/EnglishPunctuation.swift','native/App.swift','-o',BUILD/'libRustClickUI.dylib','-Xlinker','-install_name','-Xlinker','@rpath/libRustClickUI.dylib','-framework','Cocoa','-framework','WebKit','-framework','FinderSync','-framework','ServiceManagement','-framework','Carbon','-framework','Vision','-framework','Quartz')
 run('swiftc','-emit-executable','-parse-as-library','-O','-target',target,'-module-name','RustClickFinder','native/FinderMenu.swift','native/MenuActionStore.swift','native/FinderRequestRouting.swift','native/FinderVolumeMonitor.swift','native/FinderSync.swift','-o',BUILD/'RustClickFinder','-framework','Cocoa','-framework','FinderSync','-Xlinker','-e','-Xlinker','_NSExtensionMain')
 if APP.exists(): shutil.rmtree(APP)
 contents=APP/'Contents';res=contents/'Resources';mac=contents/'MacOS';frameworks=contents/'Frameworks';ext=contents/'PlugIns/RightClickFinder.appex/Contents'
@@ -39,13 +40,15 @@ info={**base,'CFBundleExecutable':'RightClick','CFBundleIdentifier':'dev.rustcli
 (ext/'Info.plist').write_bytes(plistlib.dumps({**base,'CFBundleIdentifier':'dev.rustclick.app.finder','CFBundleExecutable':'RightClickFinder','CFBundleName':'RightClick Finder','CFBundleDisplayName':'RightClick Finder','CFBundlePackageType':'XPC!','NSPrincipalClass':'NSApplication','LSUIElement':True,'NSExtension':{'NSExtensionPointIdentifier':'com.apple.FinderSync','NSExtensionPrincipalClass':'RustClickFinderSync','NSExtensionAttributes':{}}}))
 (contents/'Info.plist').write_bytes(plistlib.dumps(info))
 ent=BUILD/'finder.entitlements';ent.write_bytes(plistlib.dumps({'com.apple.security.app-sandbox':True,'com.apple.security.files.user-selected.read-write':True}))
-for p in [res/'bin/7zz',frameworks/'libRustClickUI.dylib']:run('codesign','--force','--sign','-',p)
-run('codesign','--force','--sign','-','--entitlements',ent,ext.parent)
-run('codesign','--force','--sign','-',APP)
+for p in [res/'bin/7zz',frameworks/'libRustClickUI.dylib']:run('codesign','--force','--sign',identity,p)
+run('codesign','--force','--sign',identity,'--entitlements',ent,ext.parent)
+run('codesign','--force','--sign',identity,APP)
 run('codesign','--verify','--deep','--strict',APP)
 if '--install' in sys.argv:
  destination=pathlib.Path.home()/'Applications/RightClick.app'
- if destination.exists():shutil.rmtree(destination)
+ if destination.exists():
+  verify_install_identity(destination, APP)
+  shutil.rmtree(destination)
  shutil.copytree(APP,destination,symlinks=True)
  # Retire the previous product name only after the new signed bundle is installed.
  legacy=pathlib.Path.home()/'Applications/RustClick.app'

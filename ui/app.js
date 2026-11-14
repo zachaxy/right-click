@@ -1,15 +1,15 @@
 'use strict';
 const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const icons={menu:'M3 5h18M3 12h12M3 19h6',home:'M3 10 12 3l9 7v10H4V10M9 21v-8h6v8',file:'M14 2H5v20h14V7l-5-5v5h5M8 12h8M8 16h6',send:'m3 3 19 8-9 3-3 8-7-19Zm10 11 9-3',folder:'M3 7h7l2 2h9v11H3V5h6l2 2',palette:'M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 0-4c-1-1 0-2 2-2h2a5 5 0 0 0 4-5c0-4-4-7-9-7M7 10h.01M9 6h.01M15 6h.01M18 10h.01',tool:'m14 6 4 4M5 20l-2-2 9-9c-1-4 2-7 6-6l-4 4 3 3 4-4c1 4-2 7-6 6Z',code:'m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18',text:'M3 4h18M12 4v16M7 20h10',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2',play:'m8 4 13 8-13 8Z',check:'m5 12 4 4L20 5',plus:'M12 4v16M4 12h16',arrow:'M5 12h14m-6-6 6 6-6 6',cut:'m9 9 11 11M9 15 20 4M5 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8M5 14a4 4 0 1 0 0 8 4 4 0 0 0 0-8',copy:'M8 8h13v13H8ZM16 8V3H3v13h5',trash:'M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7',image:'M3 3h18v18H3Zm0 13 5-6 7 8 3-4 3 3M16 7h.01',hash:'M9 3 7 21M17 3l-2 18M3 8h18M2 16h18',archive:'M3 5h18v5H3Zm2 5v11h14V10M10 14h4',eye:'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Zm10-3a3 3 0 1 0 0 6 3 3 0 0 0 0-6',link:'m10 13 4-4M8 15l-2 2a3 3 0 0 1-4-4l5-5a3 3 0 0 1 4 0m2 8a3 3 0 0 0 4 0l5-5a3 3 0 0 0-4-4l-2 2',disk:'M4 4h16v16H4Zm8 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8M17 17h.01',qr:'M3 3h6v6H3ZM15 3h6v6h-6ZM3 15h6v6H3ZM15 15h3v3h3v3h-6Zm6-3h.01',close:'m6 6 12 12M6 18 18 6',pin:'m8 3 8 0-1 7 4 4H5l4-4ZM12 14v8',star:'m12 3 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1Z'};
+const icons={keyboard:'M2 5h20v14H2zM5 9h1m3 0h1m3 0h1m3 0h1M5 12h1m3 0h1m3 0h1m3 0h1M8 15h8',menu:'M3 5h18M3 12h12M3 19h6',home:'M3 10 12 3l9 7v10H4V10M9 21v-8h6v8',file:'M14 2H5v20h14V7l-5-5v5h5M8 12h8M8 16h6',send:'m3 3 19 8-9 3-3 8-7-19Zm10 11 9-3',folder:'M3 7h7l2 2h9v11H3V5h6l2 2',palette:'M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 0-4c-1-1 0-2 2-2h2a5 5 0 0 0 4-5c0-4-4-7-9-7M7 10h.01M9 6h.01M15 6h.01M18 10h.01',tool:'m14 6 4 4M5 20l-2-2 9-9c-1-4 2-7 6-6l-4 4 3 3 4-4c1 4-2 7-6 6Z',code:'m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18',text:'M3 4h18M12 4v16M7 20h10',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2',play:'m8 4 13 8-13 8Z',check:'m5 12 4 4L20 5',plus:'M12 4v16M4 12h16',arrow:'M5 12h14m-6-6 6 6-6 6',cut:'m9 9 11 11M9 15 20 4M5 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8M5 14a4 4 0 1 0 0 8 4 4 0 0 0 0-8',copy:'M8 8h13v13H8ZM16 8V3H3v13h5',trash:'M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7',image:'M3 3h18v18H3Zm0 13 5-6 7 8 3-4 3 3M16 7h.01',hash:'M9 3 7 21M17 3l-2 18M3 8h18M2 16h18',archive:'M3 5h18v5H3Zm2 5v11h14V10M10 14h4',eye:'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Zm10-3a3 3 0 1 0 0 6 3 3 0 0 0 0-6',link:'m10 13 4-4M8 15l-2 2a3 3 0 0 1-4-4l5-5a3 3 0 0 1 4 0m2 8a3 3 0 0 0 4 0l5-5a3 3 0 0 0-4-4l-2 2',disk:'M4 4h16v16H4Zm8 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8M17 17h.01',qr:'M3 3h6v6H3ZM15 3h6v6h-6ZM3 15h6v6H3ZM15 15h3v3h3v3h-6Zm6-3h.01',close:'m6 6 12 12M6 18 18 6',pin:'m8 3 8 0-1 7 4 4H5l4-4ZM12 14v8',star:'m12 3 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1Z'};
 function icon(n){return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${icons[n]||icons.tool}"/></svg>`}
-const nav=[['overview','home','概览'],['templates','file','新建文件'],['send','send','发送文件'],['favorites','folder','常用目录'],['icons','palette','文件夹图标'],['tools','tool','工具箱'],['apps','code','开发工具'],['text','text','文字工具'],['clipboard','copy','剪贴板'],['workbench','play','操作台'],['menu','menu','右键菜单'],['settings','settings','通用设置']];
+const nav=[['overview','home','概览'],['templates','file','新建文件'],['send','send','发送文件'],['favorites','folder','常用目录'],['icons','palette','文件夹图标'],['tools','tool','工具箱'],['apps','code','开发工具'],['text','text','文字工具'],['clipboard','copy','剪贴板'],['inputSources','keyboard','输入法'],['workbench','play','操作台'],['menu','menu','右键菜单'],['settings','settings','通用设置']];
 let model,config,page='overview',cwd='',selection=[],lastResult=null,lastLabel='',textValue='',statusInfo={},installedApps=[],serial=0,pending=new Map(),busy=false;
 window.__resolve=(id,result)=>{const p=pending.get(id);if(!p)return;pending.delete(id);result.ok?p.resolve(result.data):p.reject(new Error(result.error||'操作失败'))};
 function rpc(request){return new Promise((resolve,reject)=>{const id=++serial;pending.set(id,{resolve,reject});if(!window.webkit?.messageHandlers?.rustclick){pending.delete(id);reject(new Error('请从 RightClick.app 打开此界面'));return}window.webkit.messageHandlers.rustclick.postMessage({id,request})})}
 const native=(cmd,params={})=>rpc({cmd:'native',request:{cmd,...params}});
 let toastTimer;function toast(text,error=false){$('#toast').textContent=text;$('#toast').className='toast visible'+(error?' error':'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),error?6500:3500)}window.showError=e=>toast(e,true);window.addEventListener('unhandledrejection',e=>{e.preventDefault();toast(e.reason?.message||String(e.reason),true)});
 async function reload(){model=await rpc({cmd:'state'});config=model.config;model.menuCatalog=await native('menu_catalog',{config});cwd=cwd||model.home+'/Desktop';$('#choose-context').textContent=cwd;return model}
-async function save(){await rpc({cmd:'save_config',config});await native('apply_settings',{config});model.menuCatalog=await native('menu_catalog',{config});toast('设置已保存');render()}
+function save(){return queueConfigSave(async()=>{await rpc({cmd:'save_config',config});await native('apply_settings',{config});model.menuCatalog=await native('menu_catalog',{config});toast('设置已保存');render()})}
 function switchButton(key,value,label){return `<button class="switch ${value?'on':''}" data-setting="${key}" role="switch" aria-checked="${!!value}" aria-label="${esc(label)}"></button>`}
 function title(eyebrow,name,sub,action=''){return `<div class="eyebrow">${eyebrow}</div><div class="title-line"><h1>${name}</h1>${action}</div><p class="subtitle">${sub}</p>`}
 function context(){return `<div class="file-context"><div class="tile-icon">${icon('folder')}</div><div class="text"><h3>${selection.length?`已选择 ${selection.length} 个项目`:'选择文件，开始操作'}</h3><small>${esc(cwd)}</small></div><button class="secondary" data-action="choose-dir">更改目录</button><button class="primary" data-action="choose-files">${icon('plus')}选择文件</button></div>${selection.length?`<div class="selected-files">${selection.map(p=>`<span class="file-chip" title="${esc(p)}">${esc(p.split('/').pop())}</span>`).join('')}<button class="inline-link" data-action="clear-files">清除</button></div>`:''}`}
@@ -29,7 +29,120 @@ function clipboardPage(){return title('KEEP A LITTLE MORE','剪贴板','复制�
 function workbench(){return title('YOUR EVERYDAY SHORTCUTS','操作台','选中一些文件，把手边的小事一次做好。')+context()+`<div class="tool-grid">${toolButton('create','file','新建文件')}${toolButton('copy','copy','复制到…')}${toolButton('move','send','移动到…')}${toolButton('cut','cut','剪切')}${toolButton('paste','copy','粘贴')}${toolButton('info','hash','查看校验值')}${toolButton('convert:png','image','图片转 PNG')}${toolButton('compress','archive','压缩为 ZIP')}${toolButton('open_default','arrow','用默认应用打开')}</div>${resultView()}`}
 const settings=[['showTray','显示菜单栏图标','RightClick 不在 Dock 显示。单击顶部图标打开，右键可退出；关闭图标后仍可从应用程序目录打开。'],['hideOnCut','剪切时隐藏文件','粘贴或取消剪切时恢复原始隐藏状态。默认保留可见。'],['confirmDelete','永久删除前确认','关闭后，点击永久删除将直接执行，无法从废纸篓恢复。'],['openAfterCreate','新建后自动打开','使用系统默认应用打开新建的文档。'],['sound','操作完成提示音','完成文件创建后播放系统提示音。'],['terminalTab','终端在新标签页打开','适用于 Terminal 与 iTerm2。'],['externalDisks','在外接磁盘启用右键','包括已挂载的 U 盘和移动硬盘。'],['cloudShortcut','云盘目录快捷菜单','在访达使用 Shift + 右键或鼠标中键，调出快捷菜单。'],['showIcons','显示右键菜单图标','在访达菜单中显示系统图标。']];
 function settingsPage(){return title('MAKE IT YOURS','通用设置','按照自己的习惯，留下最顺手的方式。')+`<div class="panel"><div class="panel-title"><h3>启动与权限</h3><span class="status-chip ${statusInfo.finderEnabled?'':'pending'}">${statusInfo.finderEnabled?'访达扩展已启用':'等待启用访达扩展'}</span></div><div class="row"><div class="text"><strong>访达右键与工具栏</strong><small>启用后，在访达空白处或文件上右键使用。</small></div><button class="secondary" data-action="enable-finder">系统设置</button></div><div class="row"><div class="text"><strong>完全磁盘访问</strong><small>受系统保护的文件夹需要由你在系统设置中授权。</small></div><button class="secondary" data-action="disk-permission">前往授权</button></div><div class="row"><div class="text"><strong>辅助功能与自动化</strong><small>终端新标签页、云盘快捷菜单可能需要。</small></div><button class="secondary" data-action="ax-permission">系统设置</button></div><div class="row"><div class="text"><strong>登录时启动</strong><small>由 macOS 管理，可在登录项中随时关闭。</small></div>${switchButton('login',statusInfo.login,'登录时启动')}</div></div><div class="panel"><div class="panel-title"><h3>使用偏好</h3></div>${settings.map(([k,t,d])=>`<div class="row"><div class="text"><strong>${t}</strong><small>${d}</small></div>${switchButton(k,config[k],t)}</div>`).join('')}</div><div class="panel"><div class="row"><div class="text"><strong>右键菜单层级与顺序</strong><small>为每个功能选择一级、二级或三级，并调整分组顺序和显示开关。</small></div><button class="secondary" data-page="menu">配置右键菜单</button></div></div><div class="note">RightClick 独立实现常用右键工具，所有功能永久免费，没有试用期限或设备数量限制。你的配置仅保存在本机。</div>`}
-let menuSearch='', menuSaveChain=Promise.resolve();
+let inputSourceStatus=null, inputSourceError='', editingInputRule=false;
+
+async function refreshInputSourceStatus(){
+  try {
+    inputSourceStatus=await native('input_source_status');
+    inputSourceError='';
+  } catch(error) {
+    inputSourceStatus=null;
+    inputSourceError=error.message;
+  }
+  if(page==='inputSources')render();
+}
+
+function inputSourcesPage(){
+  const rules=config.inputSourceRules||[];
+  const sources=inputSourceStatus?.sources||[];
+  const rows=rules.map(rule=>{
+    const source=sources.find(item=>item.id===rule.defaultSourceID);
+    const options=[];
+    if(rule.defaultSourceID){
+      options.push(source?'默认使用 '+source.name:inputSourceStatus?'默认输入法已停用或不可用':'默认输入法待检查');
+    }
+    if(rule.rememberLast)options.push('返回时恢复上次输入法');
+    if(rule.forceEnglishPunctuation)options.push('英文标点');
+    return `<div class="row">
+      <div class="text"><strong>${esc(rule.name)}</strong><small>${esc(options.join(' · '))}</small></div>
+      <div class="row-actions">
+        <button class="secondary" data-edit-input-rule="${esc(rule.bundleID)}" aria-label="编辑${esc(rule.name)}的规则">编辑</button>
+        <button class="icon-button" data-remove-input-rule="${esc(rule.bundleID)}" aria-label="移除${esc(rule.name)}的规则" title="移除规则">${icon('close')}</button>
+      </div></div>`;
+  }).join('');
+  let status='';
+  if(inputSourceError){
+    status=`<div class="panel"><div class="row"><div class="text"><strong>无法读取输入法状态</strong><small>${esc(inputSourceError)}</small></div><button class="secondary" data-action="input-status-refresh">重试</button></div></div>`;
+  } else if(inputSourceStatus&&rules.some(rule=>rule.forceEnglishPunctuation)){
+    const {accessibility,punctuationRunning,punctuationStatus}=inputSourceStatus;
+    status=`<div class="panel"><div class="row"><div class="text"><strong>英文标点</strong>
+      <small>${esc(punctuationStatus||(accessibility?(punctuationRunning?'已启用':'等待启用'):'请在系统设置中为 RightClick 开启辅助功能权限。'))}</small></div>
+      ${accessibility?'':'<button class="secondary" data-action="ax-permission">前往授权</button>'}</div></div>`;
+  }
+  return `<div class="title-line"><h1>输入法</h1><button class="primary" data-action="input-rule-add">${icon('plus')}添加应用</button></div>
+    <p class="subtitle">为每个应用设置输入法、切回时的行为和标点格式。</p>
+    <div class="panel"><div class="panel-title"><h3>应用规则</h3><span class="muted">${rules.length} 个应用</span></div>
+    ${rows||'<div class="empty">添加应用后，可为它选择默认输入法、记忆上次输入法或使用英文标点。</div>'}</div>${status}`;
+}
+
+function inputRuleFields(rule){
+  const sources=inputSourceStatus.sources;
+  const unavailable=rule.defaultSourceID&&!sources.some(source=>source.id===rule.defaultSourceID);
+  return `<label for="default-input-source">默认输入法</label>
+    <select id="default-input-source" name="defaultSourceID">
+      <option value="">保留当前输入法</option>
+      ${unavailable?`<option value="${esc(rule.defaultSourceID)}" selected>已停用或不可用 · ${esc(rule.defaultSourceID)}</option>`:''}
+      ${sources.map(source=>`<option value="${esc(source.id)}" ${source.id===rule.defaultSourceID?'selected':''}>${esc(source.name)}</option>`).join('')}
+    </select>
+    <label><input type="checkbox" name="rememberLast" ${rule.rememberLast?'checked':''}> 记住上次使用的输入法</label>
+    <div class="muted">切回此应用时优先恢复上次使用的输入法。首次进入时使用上方设置。</div>
+    <label><input type="checkbox" name="forceEnglishPunctuation" ${rule.forceEnglishPunctuation?'checked':''}> 强制英文标点</label>
+    <div class="muted">使用中文输入法时，逗号、句号等按键输入英文标点。${inputSourceStatus.accessibility?'':'此功能需要辅助功能权限。'}</div>`;
+}
+
+async function editInputRule(bundleID){
+  if(editingInputRule)return;
+  editingInputRule=true;
+  try {
+    const app=bundleID?(config.inputSourceRules||[]).find(rule=>rule.bundleID===bundleID):
+      (await native('input_source_choose_app')).app;
+    if(!app)return;
+    await refreshInputSourceStatus();
+    if(!inputSourceStatus||page!=='inputSources')return;
+    const rule=(config.inputSourceRules||[]).find(rule=>rule.bundleID===app.bundleID)||app;
+    const result=dialog(app.name+' · 输入法规则',inputRuleFields(rule),'保存');
+    const form=$('#dialog-form'), submit=$('#dialog-submit');
+    const update=()=>{
+      const fields=form.elements;
+      submit.disabled=!(fields.defaultSourceID.value||fields.rememberLast.checked||fields.forceEnglishPunctuation.checked);
+    };
+    form.addEventListener('change',update);
+    update();
+    let fields;
+    try { fields=await result } finally { form.removeEventListener('change',update);submit.disabled=false }
+    if(fields)await saveInputRule(app.bundleID,{
+      bundleID:app.bundleID,name:app.name,defaultSourceID:fields.defaultSourceID||null,
+      rememberLast:!!fields.rememberLast,forceEnglishPunctuation:!!fields.forceEnglishPunctuation
+    });
+  } finally {
+    editingInputRule=false;
+  }
+}
+
+function saveInputRule(bundleID,rule){
+  return queueConfigSave(async()=>{
+    const rules=[...(config.inputSourceRules||[])];
+    const index=rules.findIndex(item=>item.bundleID===bundleID);
+    if(index>=0)rules.splice(index,1,...(rule?[rule]:[]));
+    else if(rule)rules.push(rule);
+    else return;
+    const next={...config,inputSourceRules:rules};
+    await rpc({cmd:'save_config',config:next});
+    config.inputSourceRules=rules;
+    try {
+      await native('apply_settings',{config:next});
+      toast(rule?'输入法规则已保存':'输入法规则已移除');
+    } finally {
+      await refreshInputSourceStatus();
+    }
+  });
+}
+
+let menuSearch='', configSaveChain=Promise.resolve();
+function queueConfigSave(work){
+  configSaveChain=configSaveChain.catch(()=>{}).then(work);
+  return configSaveChain;
+}
 const menuOpenGroups=new Set();
 const menuLevelNames={1:'一级',2:'二级',3:'三级'};
 function menuGroups(){return model?.menuCatalog?.groups||[]}
@@ -74,8 +187,7 @@ function queueMenuChange(edit){
       toast('菜单已保存，下次右键生效');
     }catch(error){if(page==='menu')render();throw error}
   };
-  menuSaveChain=menuSaveChain.catch(()=>{}).then(work);
-  return menuSaveChain;
+  return queueConfigSave(work);
 }
 function setMenuLevel(id,value){
   if(!menuGroups().some(g=>g.actions.some(a=>a.id===id)))throw new Error('此菜单选项已不存在，请重新打开页面');
@@ -99,8 +211,8 @@ document.addEventListener('toggle',e=>{const id=e.target.dataset?.menuSection;if
 
 function resultView(){if(!lastResult)return '';let paths=lastResult.paths||[];return `<div class="result"><div class="title-line"><h3>${esc(lastLabel||'操作结果')}</h3><button class="icon-button" data-action="clear-result" aria-label="关闭结果">×</button></div>${paths.map(p=>`<div class="result-row"><span>已生成</span><code>${esc(p)}</code></div>`).join('')}${Array.isArray(lastResult.files)?lastResult.files.map(f=>`<h3 style="margin-top:18px">${esc(f.name)}</h3>${['bytes','permissions','md5','sha1','sha256','sha512'].filter(k=>f[k]!==undefined).map(k=>`<div class="result-row"><span>${k.toUpperCase()}</span><code>${esc(f[k])}</code></div>`).join('')}`).join(''):''}${lastResult.largest?`<p class="muted">总计 ${formatBytes(lastResult.bytes)} · ${lastResult.files} 个文件 · ${lastResult.unreadable} 个目录无法读取</p>${lastResult.largest.map(f=>`<div class="result-row"><span>${formatBytes(f.bytes)}</span><code>${esc(f.path)}</code></div>`).join('')}`:''}${lastResult.message?`<p class="muted">${esc(lastResult.message)}</p>`:''}${lastResult.errors?.length?`<pre>${esc(JSON.stringify(lastResult.errors,null,2))}</pre>`:''}${paths.length?`<div class="operation-line"><button class="secondary" data-action="reveal-result">在访达中显示</button><button class="secondary" data-action="open-result">打开结果</button>${lastLabel==='二维码'?'<button class="secondary" data-action="copy-qr">复制二维码图片</button>':''}</div>`:''}</div>`}
 function formatBytes(b){return b>1073741824?(b/1073741824).toFixed(2)+' GB':b>1048576?(b/1048576).toFixed(1)+' MB':b>1024?(b/1024).toFixed(1)+' KB':b+' B'}
-function render(){if(!model)return;$('#nav').innerHTML=nav.map(([id,i,n],idx)=>(id==='workbench'?'<div class="nav-divider"></div>':'')+`<button class="nav-item ${page===id?'active':''}" data-page="${id}">${icon(i)}<span>${n}</span></button>`).join('');$('#breadcrumb').textContent='工作空间 / '+nav.find(x=>x[0]===page)?.[2];$('#main').innerHTML=({overview,templates:templatesPage,send:()=>foldersPage('send'),favorites:()=>foldersPage('favorites'),icons:iconPage,tools:toolsPage,apps:appsPage,text:textPage,clipboard:clipboardPage,workbench,menu:menuPage,settings:settingsPage})[page]();$('#choose-context').textContent=cwd}
-function go(id){page=id;render();$('#main').scrollTop=0}
+function render(){if(!model)return;$('#nav').innerHTML=nav.map(([id,i,n],idx)=>(id==='workbench'?'<div class="nav-divider"></div>':'')+`<button class="nav-item ${page===id?'active':''}" data-page="${id}">${icon(i)}<span>${n}</span></button>`).join('');$('#breadcrumb').textContent='工作空间 / '+nav.find(x=>x[0]===page)?.[2];$('#main').innerHTML=({overview,templates:templatesPage,send:()=>foldersPage('send'),favorites:()=>foldersPage('favorites'),icons:iconPage,tools:toolsPage,apps:appsPage,text:textPage,clipboard:clipboardPage,inputSources:inputSourcesPage,workbench,menu:menuPage,settings:settingsPage})[page]();$('#choose-context').textContent=cwd}
+function go(id){page=id;render();$('#main').scrollTop=0;if(id==='inputSources')refreshInputSourceStatus()}
 async function dialog(title,html,submit='确定',danger=false){$('#dialog-title').textContent=title;$('#dialog-body').innerHTML=html;$('#dialog-submit').textContent=submit;$('#dialog-submit').className=danger?'danger':'primary';const d=$('#dialog');d.showModal();return new Promise(resolve=>{let finished=false;function close(value){if(finished)return;finished=true;d.close();resolve(value)}$('#dialog-form').onsubmit=e=>{e.preventDefault();close(Object.fromEntries(new FormData(e.target)))};$('#dialog-cancel').onclick=()=>close(null);$('#dialog-close').onclick=()=>close(null);d.oncancel=e=>{e.preventDefault();close(null)}})}
 async function choose(kind='file',multiple=false){const r=await native('choose',{kind,multiple});return r.paths||[]}
 async function requireFiles(){if(!selection.length){selection=await choose('file',true);render()}return selection.length>0}
@@ -122,9 +234,9 @@ if(id.startsWith('extension_')){await runNative('extension_hidden',{paths:select
 if(id==='compress7z'||id==='encrypt'){let password='';let format='7z';if(id==='encrypt'){const r=await dialog('加密压缩','<label>归档格式</label><select name="format"><option value="7z">7z (AES-256)</option><option value="zip">ZIP (AES-256)</option></select><label>密码</label><input name="password" type="password" required autocomplete="new-password"><p class="muted">密码仅用于本次压缩，不会保存到设置。</p>','压缩');if(!r)return;password=r.password;format=r.format}await perform({cmd:'archive7z',paths:selection,dir:cwd,format,password},'压缩');return}
 if(id==='extract'){let password='';const res=await dialog('解压归档','<p class="muted">每个归档会解压到新的独立文件夹。</p><label>密码（未加密可留空）</label><input name="password" type="password" autocomplete="off">','解压');if(!res)return;password=res.password;await perform({cmd:'extract_auto',paths:selection,dir:cwd,password},'解压');return}
 await perform({cmd:id==='unhidden'?'hidden':id,paths:selection,dir:id==='shortcut'?model.home+'/Desktop':cwd,hidden:id==='hidden',format:'zip'},toolsList.find(x=>x[0]===id)?.[2]||'压缩')}
-async function action(id){switch(id){case 'clipboard-open':await native('clipboard_show');break;case 'clipboard-settings':await native('clipboard_settings');break;case 'reset-menu-levels':await resetMenuLevels();break;case 'choose-dir':{const p=(await choose('directory'))[0];if(p){cwd=p;render()}break}case 'choose-files':selection=await choose('file',true);render();break;case 'clear-files':selection=[];render();break;case 'enable-finder':await native('settings',{pane:'extensions'});break;case 'disk-permission':await native('settings',{pane:'disk'});break;case 'ax-permission':await native('settings',{pane:'accessibility'});break;case 'clear-result':lastResult=null;render();break;case 'reveal-result':await native('reveal',{paths:lastResult.paths});break;case 'open-result':await native('open',{paths:lastResult.paths});break;case 'copy-qr':await native('clipboard_image',{paths:lastResult.paths});toast('二维码已复制');break;case 'add-favorite':{const p=(await choose('directory'))[0];if(p){if(config.favorites.some(x=>x.path===p)){toast('此目录已在列表中');break}config.favorites.push({name:p.split('/').pop(),path:p});await save()}break}case 'add-app':{const p=(await choose('app'))[0];if(p){const a=await native('app_info',{paths:[p]});config.apps.push(a);await save();installedApps=(await native('apps',{apps:config.apps})).apps;render()}break}case 'add-template':{const p=(await choose('file'))[0];if(!p)break;const r=await dialog('导入文件模板',`<label>模板名称</label><input name="name" value="${esc(p.split('/').pop())}" required><p class="muted">模板会复制到 RightClick 的本地资料目录。</p>`,'导入');if(r){await rpc({cmd:'template_add',path:p,name:r.name});await reload();await native('apply_settings',{config});render();toast('模板已导入')}break}case 'custom-icon':{if(!await requireFiles())break;const p=(await choose('image'))[0];if(p)await runNative('icon',{paths:selection,image:p},'自定义图标');break}}}
-document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;if(d.menuInherit){await inheritMenuGroup(d.menuInherit);return}if(d.menuToggle){await toggleMenuGroup(d.menuToggle);return}if(d.menuOrder){await moveMenuGroup(d.menuOrder,Number(d.direction));return}if(d.page){go(d.page);return}if(d.action){await action(d.action);return}if(d.tool){await runTool(d.tool);return}if(d.create){await createFile(model.formats.find(f=>f.id===d.create)?.ext||'txt',d.custom==='true'?config.templates.find(t=>t.id===d.create):null);return}if(d.setting){const key=d.setting;if(key==='login'){await native('login',{enabled:!statusInfo.login});statusInfo=await native('status');render();return}if(key.startsWith('format:')||key.startsWith('menu:')){config.disabled=config.disabled.includes(key)?config.disabled.filter(x=>x!==key):[...config.disabled,key]}else{if(key==='confirmDelete'&&config[key]){if(!await dialog('关闭永久删除确认？','<p class="muted">关闭后，点击永久删除会立即删除文件且不可恢复。</p>','关闭确认',true))return}config[key]=!config[key]}await save();return}if(d.removeTemplate){config.templates=config.templates.filter(t=>t.id!==d.removeTemplate);await save();return}if(d.removeFavorite!==undefined){config.favorites.splice(+d.removeFavorite,1);await save();return}if(d.editFavorite!==undefined){const f=config.favorites[+d.editFavorite];const r=await dialog('修改显示名称',`<input name="name" value="${esc(f.name)}" required>`,'保存');if(r){f.name=r.name;await save()}return}if(d.openFavorite!==undefined){await native('open',{paths:[config.favorites[+d.openFavorite].path]});return}if(d.transfer){if(await requireFiles())await perform({cmd:d.transfer,paths:selection,dir:config.favorites[+d.index].path},d.transfer==='copy'?'复制':'移动');return}if(d.openApp!==undefined){await runNative('open_app',{paths:selection.length?selection:[cwd],app:config.apps[+d.openApp].id,tab:config.terminalTab},'打开应用');return}if(d.removeApp!==undefined){config.apps.splice(+d.removeApp,1);await save();return}if(d.color){if(await requireFiles())await runNative('icon',{paths:selection,color:d.color},'文件夹图标');return}if(d.translate){textValue=$('#text-input')?.value||textValue;if(textValue.trim())await native('translate',{text:textValue,provider:d.translate});else toast('请输入要翻译的文字',true);return}if(d.order!==undefined){let i=+d.order;if(i){[config.menuOrder[i-1],config.menuOrder[i]]=[config.menuOrder[i],config.menuOrder[i-1]];await save()}}});
+async function action(id){switch(id){case 'input-rule-add':await editInputRule();break;case 'input-status-refresh':await refreshInputSourceStatus();break;case 'clipboard-open':await native('clipboard_show');break;case 'clipboard-settings':await native('clipboard_settings');break;case 'reset-menu-levels':await resetMenuLevels();break;case 'choose-dir':{const p=(await choose('directory'))[0];if(p){cwd=p;render()}break}case 'choose-files':selection=await choose('file',true);render();break;case 'clear-files':selection=[];render();break;case 'enable-finder':await native('settings',{pane:'extensions'});break;case 'disk-permission':await native('settings',{pane:'disk'});break;case 'ax-permission':await native('settings',{pane:'accessibility'});break;case 'clear-result':lastResult=null;render();break;case 'reveal-result':await native('reveal',{paths:lastResult.paths});break;case 'open-result':await native('open',{paths:lastResult.paths});break;case 'copy-qr':await native('clipboard_image',{paths:lastResult.paths});toast('二维码已复制');break;case 'add-favorite':{const p=(await choose('directory'))[0];if(p){if(config.favorites.some(x=>x.path===p)){toast('此目录已在列表中');break}config.favorites.push({name:p.split('/').pop(),path:p});await save()}break}case 'add-app':{const p=(await choose('app'))[0];if(p){const a=await native('app_info',{paths:[p]});config.apps.push(a);await save();installedApps=(await native('apps',{apps:config.apps})).apps;render()}break}case 'add-template':{const p=(await choose('file'))[0];if(!p)break;const r=await dialog('导入文件模板',`<label>模板名称</label><input name="name" value="${esc(p.split('/').pop())}" required><p class="muted">模板会复制到 RightClick 的本地资料目录。</p>`,'导入');if(r){await rpc({cmd:'template_add',path:p,name:r.name});await reload();await native('apply_settings',{config});render();toast('模板已导入')}break}case 'custom-icon':{if(!await requireFiles())break;const p=(await choose('image'))[0];if(p)await runNative('icon',{paths:selection,image:p},'自定义图标');break}}}
+document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;if(d.editInputRule){await editInputRule(d.editInputRule);return}if(d.removeInputRule){await saveInputRule(d.removeInputRule,null);return}if(d.menuInherit){await inheritMenuGroup(d.menuInherit);return}if(d.menuToggle){await toggleMenuGroup(d.menuToggle);return}if(d.menuOrder){await moveMenuGroup(d.menuOrder,Number(d.direction));return}if(d.page){go(d.page);return}if(d.action){await action(d.action);return}if(d.tool){await runTool(d.tool);return}if(d.create){await createFile(model.formats.find(f=>f.id===d.create)?.ext||'txt',d.custom==='true'?config.templates.find(t=>t.id===d.create):null);return}if(d.setting){const key=d.setting;if(key==='login'){await native('login',{enabled:!statusInfo.login});statusInfo=await native('status');render();return}if(key.startsWith('format:')||key.startsWith('menu:')){config.disabled=config.disabled.includes(key)?config.disabled.filter(x=>x!==key):[...config.disabled,key]}else{if(key==='confirmDelete'&&config[key]){if(!await dialog('关闭永久删除确认？','<p class="muted">关闭后，点击永久删除会立即删除文件且不可恢复。</p>','关闭确认',true))return}config[key]=!config[key]}await save();return}if(d.removeTemplate){config.templates=config.templates.filter(t=>t.id!==d.removeTemplate);await save();return}if(d.removeFavorite!==undefined){config.favorites.splice(+d.removeFavorite,1);await save();return}if(d.editFavorite!==undefined){const f=config.favorites[+d.editFavorite];const r=await dialog('修改显示名称',`<input name="name" value="${esc(f.name)}" required>`,'保存');if(r){f.name=r.name;await save()}return}if(d.openFavorite!==undefined){await native('open',{paths:[config.favorites[+d.openFavorite].path]});return}if(d.transfer){if(await requireFiles())await perform({cmd:d.transfer,paths:selection,dir:config.favorites[+d.index].path},d.transfer==='copy'?'复制':'移动');return}if(d.openApp!==undefined){await runNative('open_app',{paths:selection.length?selection:[cwd],app:config.apps[+d.openApp].id,tab:config.terminalTab},'打开应用');return}if(d.removeApp!==undefined){config.apps.splice(+d.removeApp,1);await save();return}if(d.color){if(await requireFiles())await runNative('icon',{paths:selection,color:d.color},'文件夹图标');return}if(d.translate){textValue=$('#text-input')?.value||textValue;if(textValue.trim())await native('translate',{text:textValue,provider:d.translate});else toast('请输入要翻译的文字',true);return}if(d.order!==undefined){let i=+d.order;if(i){[config.menuOrder[i-1],config.menuOrder[i]]=[config.menuOrder[i],config.menuOrder[i-1]];await save()}}});
 document.addEventListener('input',e=>{if(e.target.id==='text-input')textValue=e.target.value;if(e.target.id==='menu-search'){menuSearch=e.target.value;$('#menu-groups').innerHTML=menuGroupsHtml()}});$('#choose-context').onclick=()=>action('choose-dir');
-window.refreshNativeStatus=async()=>{statusInfo=await native('status');if(['settings','overview'].includes(page)&&!$('#dialog').open)render()};
+window.refreshNativeStatus=async()=>{statusInfo=await native('status');if(page==='inputSources')await refreshInputSourceStatus();if(['settings','overview'].includes(page)&&!$('#dialog').open)render()};
 window.receiveFinder=async req=>{if(req.dir)cwd=req.dir;if(req.paths)selection=req.paths;lastResult=null;go('workbench');if(req.cmd==='workbench')return;if(req.cmd==='text'){textValue=req.text||'';go('text');return}if(req.cmd==='create'&&req.format){await createFile(req.format);return}if(req.cmd==='create'&&req.template){await createFile('txt',config.templates.find(t=>t.id===req.template));return}if(req.cmd==='favorite'){await native('open',{paths:[req.destination]});return}if((req.cmd==='copy'||req.cmd==='move')&&req.destination){await perform({cmd:req.cmd,paths:selection,dir:req.destination},req.cmd==='copy'?'复制':'移动');return}if(req.cmd==='open_app'){await runNative('open_app',{paths:selection.length?selection:[cwd],app:req.app,tab:config.terminalTab},'打开应用');return}if(req.cmd==='icons'){go('icons');return}if(req.cmd==='convert'){if(req.format)await runTool('convert:'+req.format);else go('tools');return}await runTool(req.cmd)};
 (async()=>{try{await reload();statusInfo=await native('status');installedApps=(await native('apps',{apps:config.apps})).apps||[];render();await rpc({cmd:'ready'});}catch(e){$('#main').innerHTML=`<div class="empty">${esc(e.message)}</div>`;toast(e.message,true)}})();

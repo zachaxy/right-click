@@ -21,6 +21,49 @@ SOURCE_URL = f'https://github.com/ip7z/7zip/releases/download/{SEVENZIP_VERSION}
 SOURCE_SHA256 = '9cbde5099c6deb73691b0579063da5827522ccbbcba3f0020fd04e8c8c16c0d4'
 
 
+def signing_identity():
+    """Pin one valid certificate fingerprint for the whole build, including re-signing."""
+    config = Path.home() / 'Library/Application Support/RightClick/Build/signing-identity'
+    requested = os.environ.get('RIGHTCLICK_SIGN_IDENTITY')
+    if requested is None:
+        try:
+            requested = config.read_text(encoding='utf-8')
+        except FileNotFoundError:
+            return '-'
+    requested = requested.strip()
+    if requested == '-':
+        return '-'
+    if not requested:
+        raise ValueError('Code signing identity is empty. Select a certificate name or SHA-1 fingerprint.')
+    listing = subprocess.check_output(['/usr/bin/security', 'find-identity', '-v', '-p', 'codesigning'],
+                                      text=True)
+    matches = {fingerprint.upper() for fingerprint, name in
+               re.findall(r'^\s*\d+\) ([A-Fa-f0-9]{40}) "([^"\n]+)"\s*$', listing, re.MULTILINE)
+               if requested.upper() == fingerprint.upper() or requested == name}
+    if len(matches) != 1:
+        raise ValueError(f'Signing identity "{requested}" did not match exactly one valid identity. '
+                         'Check security find-identity -v -p codesigning and select its fingerprint.')
+    return matches.pop()
+
+
+def verify_install_identity(previous, replacement):
+    """Keep an installed certificate-signed application on its existing update path."""
+    display = subprocess.run(['/usr/bin/codesign', '-d', '-r-', previous], check=True, text=True,
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+    rule = re.search(r'^#?\s*designated => (.+)$', display, re.MULTILINE)
+    if not rule:
+        raise RuntimeError(f'Cannot determine the signing requirement of installed app {previous}')
+    requirement = rule.group(1)
+    if re.fullmatch(r'cdhash H"[0-9a-fA-F]+"', requirement):
+        # The legacy local build pins its exact bytes, so every real update is a migration.
+        return
+    result = subprocess.run(['/usr/bin/codesign', '--verify', '-R=' + requirement, replacement],
+                            capture_output=True)
+    if result.returncode:
+        raise RuntimeError(f'New build does not satisfy the signing requirement of {previous}. '
+                           'Choose the existing signing identity before installing.')
+
+
 def project_version(root=ROOT):
     version = tomllib.loads((root / 'Cargo.toml').read_text())['package']['version']
     if not re.fullmatch(r'(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)', version):

@@ -45,6 +45,7 @@ RightClick 以菜单栏应用运行，不在 Dock 中显示。**单击顶部 Rig
 
 ## 功能
 
+- **输入法**：在控制台打开「输入法 → 添加应用」，从系统已启用的输入法中选择默认值。勾选「记住上次使用的输入法」后，返回此应用会优先恢复上次使用的输入法，首次进入或原输入法已停用时使用默认值。也可单独勾选「强制英文标点」，在中文输入法下用逗号、句号等键输入英文符号。标点功能需要辅助功能权限，设置页可查看状态。规则仅在 RightClick 运行时生效，关闭控制台后仍可使用。
 - **剪贴板**：默认 `⌥⌘V` 唤出参考 uTools 的紧凑面板，顶部搜索与分类、单击勾选批量操作、方向键选择当前项、回车或双击粘贴，右侧操作栏提供常用动作。支持文字、链接、富文本、图片、文件历史，本机 OCR、来源/日期筛选、固定板、文字编辑和图片旋转；原格式/纯文本/多选粘贴、顺序粘贴、隐私规则、定时暂停及默认关闭的只读 MCP。首次需自行开启记录。见 [使用说明](docs/clipboard.md) 和 [Paste 功能调研](docs/paste-feature-research.md)。
 - **新建文件**：TXT、Markdown、Word、Excel、PowerPoint、RTF、XML、JSON、HTML、Rust、Python、Shell、SVG、PSD、AI（EPS 兼容格式）；自定义任意文件名和扩展名；导入任意文件或文档包作为模板。
 - **文件管理**：批量复制/移动、剪切与粘贴、取消剪切、常用目录、重命名、按文件名建目录、解散目录、桌面符号链接、文件隐藏和扩展名显示、当前用户写权限、移到废纸篓、永久删除。
@@ -66,7 +67,7 @@ RightClick 以菜单栏应用运行，不在 Dock 中显示。**单击顶部 Rig
 - “显示隐藏文件”写入访达偏好；部分 macOS 版本需要重新打开或重启访达才能刷新。
 - 符号链接不参与归档，以避免解压时链接逃逸；普通文件复制可保留符号链接。解压为独立目录，不自动删除原归档。
 - 外接硬盘、云盘、登录启动、AirDrop、壁纸、自动化、截图依赖当前设备和系统授权。代码已实现，并不代表这些入口在所有硬件/系统版本上均完成实机验证。
-- 使用本地 ad-hoc 签名，**未经过 Developer ID 签名或 Apple 公证**。接收者首次打开可能需要在系统设置中确认；若要免去未公证提示，需要 Developer ID 证书和 Apple 公证。
+- 构建默认使用临时签名，也支持指定代码签名证书。当前打包流程未做 Apple 公证，接收者首次打开可能需要在系统设置中确认。
 
 验证记录见 [验收记录](docs/verification.md)。
 
@@ -80,6 +81,12 @@ python3 scripts/build.py --install
 ```
 
 输出：`dist/RightClick.app`。`--install` 安装到 `~/Applications` 并向 LaunchServices / PlugInKit 注册，不替用户启用系统权限。修改后构建时应先退出 RightClick。
+
+### 更新后保留辅助功能授权
+
+本机开发可使用钥匙串中的 Apple Development 签名身份。公开发布使用同一团队的 Developer ID Application 身份。保持应用标识 `dev.rustclick.app` 及签名身份一致，macOS 才能在更新时继续识别 RightClick。临时签名绑定单次构建，第一次迁移到证书签名时，需在「隐私与安全性 → 辅助功能」中重新添加安装后的 RightClick。参见 [Apple 对跨版本身份的说明](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements)。
+
+运行 `security find-identity -v -p codesigning`，选择要长期使用的证书。可将它的 40 位指纹保存到本机文件 `~/Library/Application Support/RightClick/Build/signing-identity`（创建父目录，文件只写一行指纹）。此后照常构建即可。也可用环境变量 `RIGHTCLICK_SIGN_IDENTITY` 指定本次构建的证书。构建和打包使用同一个身份；已配置的证书不可用时会报错。`--install` 会检查新包能否满足已安装证书签名版本的身份要求。CI 发布需在构建机提供相应签名身份。
 
 ### 生成分发安装包
 

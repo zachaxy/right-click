@@ -3,6 +3,7 @@ import WebKit
 import FinderSync
 import ServiceManagement
 import ImageIO
+import UniformTypeIdentifiers
 
 private var backend: (@convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?)!
 private var releaseBackend: (@convention(c) (UnsafeMutablePointer<CChar>?) -> Void)!
@@ -18,6 +19,21 @@ func nativeWork(_ req:[String:Any])throws->[String:Any] {
     let cmd=req["cmd"] as? String ?? ""
     let paths=(req["paths"] as? [String] ?? []).map{URL(fileURLWithPath:$0)}
     switch cmd {
+    case "input_source_status": return controller.inputSourceStatus()
+    case "input_source_choose_app":
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = URL(fileURLWithPath: "/Applications", isDirectory: true)
+        panel.prompt = "选择应用"
+        guard panel.runModal() == .OK, let url = panel.url else { return [:] }
+        guard let bundleID = Bundle(url: url)?.bundleIdentifier, !bundleID.isEmpty else {
+            throw failure("无法读取此应用的标识，请重新选择应用。")
+        }
+        let name = FileManager.default.displayName(atPath: url.path)
+        return ["app": ["bundleID": bundleID, "name": name]]
     case "clipboard_show": controller.clipboard.show(); return controller.clipboard.status()
     case "clipboard_settings": controller.clipboard.showSettings(); return controller.clipboard.status()
     case "clipboard_status": return controller.clipboard.status()
@@ -75,6 +91,9 @@ func failure(_ text:String)->NSError{NSError(domain:"RightClick",code:1,userInfo
 class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavigationDelegate,NSWindowDelegate {
     let finderUI = DesktopFinderUI()
     let clipboard = ClipboardCoordinator()
+    let inputSources = InputSourceCoordinator()
+    let punctuation = EnglishPunctuationMonitor()
+    private var inputSourceSettings = InputSourceSettings()
     var window:NSWindow!;var web:WKWebView!;var status:NSStatusItem?;var panels=[NSPanel]();var config=[String:Any]();var pending:[[String:Any]]=[];var ready=false;var monitor:Any?;var floatingMenu:NSMenu?;var finderPaths=[String]();var finderDir=""
     func applicationDidFinishLaunching(_ notification:Notification){
         let menu=NSMenu();let root=NSMenuItem();menu.addItem(root);let app=NSMenu();app.addItem(withTitle:"关于 RightClick",action:#selector(about),keyEquivalent:"");app.addItem(.separator());app.addItem(withTitle:"显示 RightClick",action:#selector(show),keyEquivalent:"1");app.addItem(withTitle:"退出 RightClick",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q");root.submenu=app;let edit=NSMenuItem();edit.title="编辑";menu.addItem(edit);let em=NSMenu(title:"编辑");for (t,a,k) in [("撤销","undo:","z"),("剪切","cut:","x"),("拷贝","copy:","c"),("粘贴","paste:","v"),("全选","selectAll:","a")]{em.addItem(withTitle:t,action:Selector(a),keyEquivalent:k)};edit.submenu=em;NSApp.mainMenu=menu
@@ -82,11 +101,21 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
         window=NSWindow(contentRect:NSRect(x:0,y:0,width:1120,height:780),styleMask:[.titled,.closable,.miniaturizable,.resizable,.fullSizeContentView],backing:.buffered,defer:false);window.title="RightClick · 右键工具箱";window.minSize=NSSize(width:960,height:640);window.titleVisibility = .hidden;window.titlebarAppearsTransparent=true;window.backgroundColor=NSColor(srgbRed:0.961,green:0.961,blue:0.969,alpha:1);window.contentView=web;window.delegate=self;window.isReleasedWhenClosed=false;window.center();window.setFrameAutosaveName("RustClickMain");
         let url=Bundle.main.resourceURL!.appendingPathComponent("ui/index.html");web.loadFileURL(url,allowingReadAccessTo:Bundle.main.resourceURL!.appendingPathComponent("ui"));if FinderRequestRouting.showsWindowOnLaunch(notification){show()}
         DistributedNotificationCenter.default().addObserver(self,selector:#selector(publish),name:Notification.Name("dev.rustclick.requestConfig"),object:nil)
-        worker.async {let s=engine(["cmd":"state"]);let c=(s["data"] as? [String:Any])?["config"] as? [String:Any] ?? [:];DispatchQueue.main.async{self.apply(c)}}
+        worker.async {
+            let state = engine(["cmd": "state"])
+            let config = (state["data"] as? [String: Any])?["config"] as? [String: Any]
+            DispatchQueue.main.async {
+                if let config { self.apply(config) } else { self.applyMenuSettings([:]) }
+            }
+        }
         NSApp.servicesProvider=self
         clipboard.start()
     }
-    func applicationWillTerminate(_ notification:Notification) { clipboard.stop() }
+    func applicationWillTerminate(_ notification:Notification) {
+        inputSources.stop()
+        punctuation.stop()
+        clipboard.stop()
+    }
     func webView(_ webView:WKWebView,decidePolicyFor action:WKNavigationAction,decisionHandler:@escaping(WKNavigationActionPolicy)->Void){let url=action.request.url;decisionHandler(url?.isFileURL==true && url!.path.hasPrefix(Bundle.main.resourceURL!.appendingPathComponent("ui").path+"/") ? .allow:.cancel)}
     func userContentController(_ c:WKUserContentController,didReceive message:WKScriptMessage){guard message.frameInfo.isMainFrame,let body=message.body as? [String:Any],let id=body["id"] as? Int,let req=body["request"] as? [String:Any]else{return};if req["cmd"] as? String == "ready"{ready=true;for v in pending{incoming(v)};pending=[];resolve(id,["ok":true,"data":[:]]);return};worker.async{let result=engine(req);DispatchQueue.main.async{self.resolve(id,result)}}}
     func resolve(_ id:Int,_ v:[String:Any]){web.evaluateJavaScript("window.__resolve(\(id),\(encode(v)))",completionHandler:nil)}
@@ -111,7 +140,20 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
         })
     }
     func application(_ application:NSApplication,open urls:[URL]){for url in urls{guard url.scheme=="rustclick",url.host=="request",let id=URLComponents(url:url,resolvingAgainstBaseURL:false)?.queryItems?.first(where:{$0.name=="id"})?.value,UUID(uuidString:id) != nil else{continue};let board=NSPasteboard(name:NSPasteboard.Name("dev.rustclick.request."+id));guard let text=board.string(forType:.string)else{continue};board.clearContents();let req=decode(text);incoming(req)}}
-    func applicationDidBecomeActive(_ notification:Notification){if ready{web.evaluateJavaScript("window.refreshNativeStatus?.()",completionHandler:nil)}}
+    func applicationDidBecomeActive(_ notification:Notification) {
+        punctuation.update(bundleIDs: inputSourceSettings.punctuationApps)
+        if ready { web.evaluateJavaScript("window.refreshNativeStatus?.()", completionHandler:nil) }
+    }
+
+    func inputSourceStatus() -> [String: Any] {
+        punctuation.update(bundleIDs: inputSourceSettings.punctuationApps)
+        return [
+            "sources": InputSourceCoordinator.availableSources().map { ["id": $0.id, "name": $0.name] },
+            "accessibility": AXIsProcessTrusted(),
+            "punctuationRunning": punctuation.isRunning,
+            "punctuationStatus": punctuation.status
+        ]
+    }
     func applicationShouldHandleReopen(_ sender:NSApplication,hasVisibleWindows flag:Bool)->Bool{show();return true}
     func windowShouldClose(_ sender:NSWindow)->Bool{sender.orderOut(nil);return false}
     @objc func show(){window?.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true)}
@@ -144,8 +186,26 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
     @objc func pasteClipboardNext() { clipboard.pasteNext() }
     @objc func reverseClipboardStack() { clipboard.reverseStack() }
     @objc func about(){let a=NSAlert();a.messageText="RightClick 0.1.0";a.informativeText="Rust 驱动的 macOS 右键工具箱\n所有功能免费，无账号、无订阅。\n独立实现，与 Better365 无关联。";a.runModal()}
-    @objc func publish(){let text=encode(config);let board=NSPasteboard(name:NSPasteboard.Name("dev.rustclick.menuConfig"));board.clearContents();board.setString(text,forType:.string);DistributedNotificationCenter.default().postNotificationName(Notification.Name("dev.rustclick.config"),object:text,userInfo:nil,deliverImmediately:true)}
-    func apply(_ config:[String:Any]){self.config=config;if config["showTray"] as? Bool ?? true{if status==nil{status=NSStatusBar.system.statusItem(withLength:NSStatusItem.squareLength);status?.button?.image=NSImage(systemSymbolName:"cursorarrow.click",accessibilityDescription:"RightClick");status?.button?.action = #selector(trayAction(_:));status?.button?.target=self;status?.button?.toolTip="RightClick · 单击打开，右键查看更多";status?.button?.setAccessibilityLabel("RightClick");status?.button?.sendAction(on:[.leftMouseUp,.rightMouseUp])}}else if let s=status{NSStatusBar.system.removeStatusItem(s);status=nil};publish();if let m=monitor{NSEvent.removeMonitor(m);monitor=nil};if config["cloudShortcut"] as? Bool ?? false{monitor=NSEvent.addGlobalMonitorForEvents(matching:[.rightMouseDown,.otherMouseDown]){e in if (e.type == .rightMouseDown && e.modifierFlags.contains(.shift)) || e.type == .otherMouseDown{self.cloudMenu()}}}}
+    @objc func publish() {
+        var menuConfig = config
+        menuConfig.removeValue(forKey: "inputSourceRules")
+        let text = encode(menuConfig)
+        let board = NSPasteboard(name: NSPasteboard.Name("dev.rustclick.menuConfig"))
+        board.clearContents()
+        board.setString(text, forType: .string)
+        DistributedNotificationCenter.default().postNotificationName(
+            Notification.Name("dev.rustclick.config"), object: text, userInfo: nil, deliverImmediately: true)
+    }
+    func apply(_ config:[String:Any]) {
+        inputSourceSettings = InputSourceSettings(config: config)
+        inputSources.update(settings: inputSourceSettings)
+        inputSources.start()
+        punctuation.update(bundleIDs: inputSourceSettings.punctuationApps)
+        applyMenuSettings(config)
+    }
+    private func applyMenuSettings(_ config: [String: Any]) {
+        self.config = config
+        if config["showTray"] as? Bool ?? true{if status==nil{status=NSStatusBar.system.statusItem(withLength:NSStatusItem.squareLength);status?.button?.image=NSImage(systemSymbolName:"cursorarrow.click",accessibilityDescription:"RightClick");status?.button?.action = #selector(trayAction(_:));status?.button?.target=self;status?.button?.toolTip="RightClick · 单击打开，右键查看更多";status?.button?.setAccessibilityLabel("RightClick");status?.button?.sendAction(on:[.leftMouseUp,.rightMouseUp])}}else if let s=status{NSStatusBar.system.removeStatusItem(s);status=nil};publish();if let m=monitor{NSEvent.removeMonitor(m);monitor=nil};if config["cloudShortcut"] as? Bool ?? false{monitor=NSEvent.addGlobalMonitorForEvents(matching:[.rightMouseDown,.otherMouseDown]){e in if (e.type == .rightMouseDown && e.modifierFlags.contains(.shift)) || e.type == .otherMouseDown{self.cloudMenu()}}}}
     func cloudMenu(){do{let selected=try apple("tell application \"Finder\"\nset output to {}\nrepeat with itemRef in (get selection)\nset end of output to POSIX path of (itemRef as alias)\nend repeat\nreturn output\nend tell");finderPaths=(1...max(selected.numberOfItems,1)).compactMap{selected.atIndex($0)?.stringValue};finderDir=(try? apple("tell application \"Finder\" to get POSIX path of (target of front Finder window as alias)").stringValue) ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop").path;let m=NSMenu(title:"RightClick");for (title,cmd) in [("新建文件…","create"),("剪切","cut"),("粘贴","paste"),("复制到…","copy"),("移动到…","move"),("拷贝路径","copy_path"),("文件信息","info"),("图片转换…","convert"),("打开操作台","workbench")]{let item=NSMenuItem(title:title,action:#selector(cloudAction(_:)),keyEquivalent:"");item.target=self;item.representedObject=cmd;m.addItem(item)};floatingMenu=m;m.popUp(positioning:nil,at:NSEvent.mouseLocation,in:nil)}catch{finderUI.result("无法读取访达选择",text:error.localizedDescription,paths:[])}}
     @objc func cloudAction(_ item:NSMenuItem){incoming(["cmd":item.representedObject as? String ?? "workbench","paths":finderPaths,"dir":finderDir])}
     @objc func translateGoogle(_ pb:NSPasteboard,userData:String?,error:AutoreleasingUnsafeMutablePointer<NSString?>){incoming(["cmd":"text","text":pb.string(forType:.string) ?? "","provider":"google"])}

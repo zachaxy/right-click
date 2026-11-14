@@ -356,6 +356,37 @@ fn legacy_configs_can_be_saved_without_menu_levels() {
 }
 
 #[test]
+fn input_source_rules_survive_restart_and_invalid_updates_preserve_saved_rules() {
+    let (t, mut engine) = setup();
+    let mut config = engine.execute(json!({"cmd":"state"})).unwrap()["config"].clone();
+    // Existing installations can save their old config before visiting the input source page.
+    config.as_object_mut().unwrap().remove("inputSourceRules");
+    engine
+        .execute(json!({"cmd":"save_config","config":config}))
+        .unwrap();
+    let rule = json!({
+        "bundleID": "com.apple.Terminal", "name": "终端", "defaultSourceID": null,
+        "rememberLast": false, "forceEnglishPunctuation": true
+    });
+    config["inputSourceRules"] = json!([rule]);
+    engine
+        .execute(json!({"cmd":"save_config","config":config}))
+        .unwrap();
+    let mut restarted = Engine::new(t.path().join("settings"));
+    let mut duplicate = config.clone();
+    duplicate["inputSourceRules"] = json!([rule, rule]);
+    assert!(
+        restarted
+            .execute(json!({"cmd":"save_config","config":duplicate}))
+            .is_err()
+    );
+    assert_eq!(
+        restarted.execute(json!({"cmd":"state"})).unwrap()["config"],
+        config
+    );
+}
+
+#[test]
 fn menu_group_positions_are_independent_and_validated() {
     let (t, mut e) = setup();
     let mut config = e.execute(json!({"cmd":"state"})).unwrap()["config"].clone();

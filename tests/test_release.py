@@ -1,13 +1,15 @@
 """Exercise release gates without GitHub credentials or network access."""
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from build_support import bundle_version, project_version
+from build_support import bundle_version, project_version, signing_identity, verify_install_identity
 from release import metadata, validate_artifacts
 
 
@@ -21,6 +23,32 @@ class ReleaseValidationTests(unittest.TestCase):
         notes = self.root / 'docs/releases/v0.1.1.md'
         notes.parent.mkdir(parents=True)
         notes.write_text('# RightClick v0.1.1\n\n修复外接硬盘菜单。\n')
+
+    def test_signing_configuration_survives_rebuild_and_rejects_missing_identity(self):
+        fingerprint = 'A' * 40
+        identity = 'RightClick Test'
+        listing = f'  1) {fingerprint} "{identity}"\n     1 valid identities found\n'
+        with patch.dict(os.environ, {'HOME': str(self.root)}, clear=True), \
+                patch('build_support.subprocess.check_output', return_value=listing):
+            self.assertEqual(signing_identity(), '-')
+            config = self.root / 'Library/Application Support/RightClick/Build/signing-identity'
+            config.parent.mkdir(parents=True)
+            config.write_text(fingerprint.lower() + '\n')
+            self.assertEqual(signing_identity(), fingerprint)
+            config.write_text(identity)
+            self.assertEqual(signing_identity(), fingerprint)
+            config.write_text('retired certificate')
+            with self.assertRaisesRegex(ValueError, 'did not match'):
+                signing_identity()
+            os.environ['RIGHTCLICK_SIGN_IDENTITY'] = fingerprint
+            self.assertEqual(signing_identity(), fingerprint)
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'uses actual signed macOS applications')
+    def test_update_must_satisfy_the_installed_designated_requirement(self):
+        installed = Path('/System/Applications/TextEdit.app')
+        verify_install_identity(installed, installed)
+        with self.assertRaisesRegex(RuntimeError, 'does not satisfy'):
+            verify_install_identity(installed, Path('/System/Applications/Calculator.app'))
 
     def test_matching_tag_and_notes(self):
         self.assertEqual(metadata(self.root, 'v0.1.1'),

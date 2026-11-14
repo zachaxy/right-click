@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and verify a self-contained, ad-hoc signed Apple Silicon DMG/ZIP."""
+"""Build and verify a self-contained, signed Apple Silicon DMG/ZIP."""
 import json
 import os
 from pathlib import Path
@@ -11,7 +11,7 @@ import sys
 import tempfile
 
 from build_support import (SOURCE_NAME, SOURCE_URL, SOURCE_SHA256, bundle_version, digest,
-                           download_verified, project_version)
+                           download_verified, project_version, signing_identity)
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
@@ -150,10 +150,11 @@ def smoke(app, temporary):
 
 
 def main():
-    run(sys.executable, ROOT / 'scripts/build.py')
+    identity = signing_identity()
+    run(sys.executable, ROOT / 'scripts/build.py', env={**os.environ, 'RIGHTCLICK_SIGN_IDENTITY': identity})
     include_licenses()
     shutil.copy2(ROOT / 'docs/INSTALL.zh-CN.txt', APP / 'Contents/Resources/安装说明.txt')
-    run('codesign', '--force', '--sign', '-', APP)
+    run('codesign', '--force', '--sign', identity, APP)
     run('codesign', '--verify', '--deep', '--strict', APP)
     info, binaries = check_binaries()
     name = f"RightClick-{info['CFBundleShortVersionString']}-arm64"
@@ -198,7 +199,7 @@ def main():
     checksum = DIST / f'{name}.sha256'
     checksum.write_text(''.join(f'{digest(p)}  {p.name}\n' for p in [dmg, zip_path]))
     report = {'version': info['CFBundleShortVersionString'], 'minimumMacOS': info['LSMinimumSystemVersion'],
-              'architecture': 'arm64', 'signing': 'ad-hoc', 'notarized': False, 'binaries': binaries,
+              'architecture': 'arm64', 'signing': 'ad-hoc' if identity == '-' else identity, 'notarized': False, 'binaries': binaries,
               'artifacts': [{'name': p.name, 'bytes': p.stat().st_size, 'sha256': digest(p)}
                             for p in [dmg, zip_path]]}
     (BUILD / 'distribution-verification.json').write_text(json.dumps(report, indent=2) + '\n')

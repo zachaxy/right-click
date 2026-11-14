@@ -64,7 +64,7 @@ impl Engine {
     }
     fn defaults(&self) -> Value {
         let h = std::env::var("HOME").unwrap_or_default();
-        json!({"showTray":true,"hideOnCut":false,"confirmDelete":true,"openAfterCreate":false,"sound":false,"externalDisks":true,"cloudShortcut":false,"terminalTab":true,"showIcons":true,"groupMenus":true,"disabled":[],"templates":[],"favorites":[{"name":"桌面","path":format!("{h}/Desktop")},{"name":"下载","path":format!("{h}/Downloads")},{"name":"文稿","path":format!("{h}/Documents")}],"apps":[{"name":"终端","id":"com.apple.Terminal"},{"name":"iTerm2","id":"com.googlecode.iterm2"},{"name":"VS Code","id":"com.microsoft.VSCode"},{"name":"Typora","id":"abnerworks.Typora"},{"name":"PyCharm","id":"com.jetbrains.pycharm.ce"},{"name":"IntelliJ IDEA","id":"com.jetbrains.intellij.ce"},{"name":"CLion","id":"com.jetbrains.CLion"},{"name":"Android Studio","id":"com.google.android.studio"},{"name":"Obsidian","id":"md.obsidian"}],"menuLevels":{},"menuGroupLevels":{},"menuOrder":["create","cut","paste","copy","move","favorites","open_app","info","convert","compress","extract","icons","tools"]})
+        json!({"showTray":true,"hideOnCut":false,"confirmDelete":true,"openAfterCreate":false,"sound":false,"externalDisks":true,"cloudShortcut":false,"terminalTab":true,"showIcons":true,"groupMenus":true,"inputSourceRules":[],"disabled":[],"templates":[],"favorites":[{"name":"桌面","path":format!("{h}/Desktop")},{"name":"下载","path":format!("{h}/Downloads")},{"name":"文稿","path":format!("{h}/Documents")}],"apps":[{"name":"终端","id":"com.apple.Terminal"},{"name":"iTerm2","id":"com.googlecode.iterm2"},{"name":"VS Code","id":"com.microsoft.VSCode"},{"name":"Typora","id":"abnerworks.Typora"},{"name":"PyCharm","id":"com.jetbrains.pycharm.ce"},{"name":"IntelliJ IDEA","id":"com.jetbrains.intellij.ce"},{"name":"CLion","id":"com.jetbrains.CLion"},{"name":"Android Studio","id":"com.google.android.studio"},{"name":"Obsidian","id":"md.obsidian"}],"menuLevels":{},"menuGroupLevels":{},"menuOrder":["create","cut","paste","copy","move","favorites","open_app","info","convert","compress","extract","icons","tools"]})
     }
     fn config(&self) -> Result<Value> {
         self.read("config.json", self.defaults())
@@ -73,6 +73,26 @@ impl Engine {
         ensure!(v.is_object(), "配置格式错误");
         for k in ["templates", "favorites", "apps", "disabled", "menuOrder"] {
             ensure!(v[k].is_array(), "无效配置项：{k}");
+        }
+        if let Some(rules) = v.get("inputSourceRules") {
+            let mut applications = std::collections::HashSet::new();
+            for rule in rules.as_array().context("输入法规则必须是列表")? {
+                let bundle_id = strv(rule, "bundleID")?;
+                ensure!(
+                    !bundle_id.trim().is_empty() && applications.insert(bundle_id),
+                    "输入法规则需要唯一的应用标识"
+                );
+                ensure!(!strv(rule, "name")?.trim().is_empty(), "缺少应用名称");
+                let default = &rule["defaultSourceID"];
+                ensure!(
+                    default.is_null() || default.as_str().is_some_and(|id| !id.trim().is_empty()),
+                    "无效的默认输入法"
+                );
+                ensure!(
+                    rule["rememberLast"].is_boolean() && rule["forceEnglishPunctuation"].is_boolean(),
+                    "无效的输入法规则选项"
+                );
+            }
         }
         if let Some(levels) = v.get("menuLevels") {
             let levels = levels.as_object().context("菜单层级配置必须是对象")?;
