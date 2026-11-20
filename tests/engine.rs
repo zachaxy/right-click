@@ -200,6 +200,8 @@ fn preferences_roundtrip_and_no_paid_gate() {
     let (_t, mut e) = setup();
     let mut state = e.execute(json!({"cmd":"state"})).unwrap();
     assert_eq!(state["license"], "free");
+    assert_eq!(state["config"]["networkSpeed"], false);
+    state["config"]["networkSpeed"] = json!(true);
     state["config"]["showTray"] = json!(false);
     e.execute(json!({"cmd":"save_config","config":state["config"]}))
         .unwrap();
@@ -207,6 +209,10 @@ fn preferences_roundtrip_and_no_paid_gate() {
     assert_eq!(
         restarted.execute(json!({"cmd":"state"})).unwrap()["config"]["showTray"],
         false
+    );
+    assert_eq!(
+        restarted.execute(json!({"cmd":"state"})).unwrap()["config"]["networkSpeed"],
+        true
     );
 }
 

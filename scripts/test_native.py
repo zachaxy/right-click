@@ -11,6 +11,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build"
 BUILD.mkdir(exist_ok=True)
 CASES = [
+    ("network-speed-image", ["NetworkSpeedStatusImage.swift"]),
+    ("network-speed", ["NetworkSpeedMonitor.swift"]),
     ("panel-activation", ["ToolPanel.swift", "ClipboardStore.swift", "ClipboardPanel.swift", "ClipboardStack.swift", "ClipboardCoordinator.swift", "TranslationPanel.swift"]),
     ("translation", ["ToolPanel.swift", "TranslationPanel.swift"]),
     ("input-source", ["InputSourceSettings.swift", "InputSourceCoordinator.swift"]),

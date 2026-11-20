@@ -87,6 +87,20 @@ func nativeWork(_ req:[String:Any])throws->[String:Any] {
     }
 }
 func failure(_ text:String)->NSError{NSError(domain:"RightClick",code:1,userInfo:[NSLocalizedDescriptionKey:text])}
+private extension NetworkSpeedSample {
+    static func formatRate(_ bytesPerSecond: Double) -> String {
+        guard bytesPerSecond.isFinite, bytesPerSecond > 0 else { return "0 B/s" }
+        let units = ["B/s", "KB/s", "MB/s", "GB/s", "TB/s"]
+        var value = bytesPerSecond
+        var unit = 0
+        while value >= 1000 && unit < units.count - 1 {
+            value /= 1000
+            unit += 1
+        }
+        return String(format: unit == 0 ? "%.0f %@" : "%.1f %@",
+                      locale: Locale(identifier: "en_US_POSIX"), value, units[unit])
+    }
+}
 @_cdecl("rustclick_native") public func nativeCall(_ p:UnsafePointer<CChar>?)->UnsafeMutablePointer<CChar>? {guard let p=p else{return nil};let req=decode(String(cString:p));var result:[String:Any]=[:];let work={do{result=try nativeWork(req)}catch{result=["error":error.localizedDescription]}};if Thread.isMainThread{work()}else{DispatchQueue.main.sync(execute:work)};return strdup(encode(result))}
 
 class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavigationDelegate,NSWindowDelegate {
@@ -95,9 +109,15 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
     let translation = TranslationCoordinator()
     let inputSources = InputSourceCoordinator()
     let punctuation = EnglishPunctuationMonitor()
+    private let networkSpeed = NetworkSpeedMonitor()
+    private var networkSample: NetworkSpeedSample?
     private var inputSourceSettings = InputSourceSettings()
     var window:NSWindow!;var web:WKWebView!;var status:NSStatusItem?;var panels=[NSPanel]();var config=[String:Any]();var pending:[[String:Any]]=[];var ready=false;var monitor:Any?;var floatingMenu:NSMenu?;var finderPaths=[String]();var finderDir=""
     func applicationDidFinishLaunching(_ notification:Notification){
+        networkSpeed.onUpdate = { [weak self] sample in
+            self?.networkSample = sample
+            self?.updateTrayAppearance()
+        }
         let menu=NSMenu();let root=NSMenuItem();menu.addItem(root);let app=NSMenu();app.addItem(withTitle:"关于 RightClick",action:#selector(about),keyEquivalent:"");app.addItem(.separator());app.addItem(withTitle:"显示 RightClick",action:#selector(show),keyEquivalent:"1");app.addItem(withTitle:"退出 RightClick",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q");root.submenu=app;let edit=NSMenuItem();edit.title="编辑";menu.addItem(edit);let em=NSMenu(title:"编辑");for (t,a,k) in [("撤销","undo:","z"),("剪切","cut:","x"),("拷贝","copy:","c"),("粘贴","paste:","v"),("全选","selectAll:","a")]{em.addItem(withTitle:t,action:Selector(a),keyEquivalent:k)};edit.submenu=em;NSApp.mainMenu=menu
         let translate = app.insertItem(withTitle:"翻译为中文…",action:#selector(showTranslation),keyEquivalent:"t",at:3)
         translate.keyEquivalentModifierMask = [.command, .shift]
@@ -118,6 +138,7 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
         translation.start()
     }
     func applicationWillTerminate(_ notification:Notification) {
+        networkSpeed.stop()
         inputSources.stop()
         punctuation.stop()
         clipboard.stop()
@@ -216,7 +237,60 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
     }
     private func applyMenuSettings(_ config: [String: Any]) {
         self.config = config
-        if config["showTray"] as? Bool ?? true{if status==nil{status=NSStatusBar.system.statusItem(withLength:NSStatusItem.squareLength);status?.button?.image=NSImage(systemSymbolName:"cursorarrow.click",accessibilityDescription:"RightClick");status?.button?.action = #selector(trayAction(_:));status?.button?.target=self;status?.button?.toolTip="RightClick · 单击打开，右键查看更多";status?.button?.setAccessibilityLabel("RightClick");status?.button?.sendAction(on:[.leftMouseUp,.rightMouseUp])}}else if let s=status{NSStatusBar.system.removeStatusItem(s);status=nil};publish();if let m=monitor{NSEvent.removeMonitor(m);monitor=nil};if config["cloudShortcut"] as? Bool ?? false{monitor=NSEvent.addGlobalMonitorForEvents(matching:[.rightMouseDown,.otherMouseDown]){e in if (e.type == .rightMouseDown && e.modifierFlags.contains(.shift)) || e.type == .otherMouseDown{self.cloudMenu()}}}}
+        if config["showTray"] as? Bool ?? true {
+            if status == nil {
+                status = NSStatusBar.system.statusItem(withLength:NSStatusItem.squareLength)
+                status?.button?.image = NSImage(systemSymbolName:"cursorarrow.click",accessibilityDescription:"RightClick")
+                status?.button?.action = #selector(trayAction(_:))
+                status?.button?.target = self
+                status?.button?.sendAction(on:[.leftMouseUp,.rightMouseUp])
+            }
+        } else if let status {
+            NSStatusBar.system.removeStatusItem(status)
+            self.status = nil
+        }
+        if status != nil && config["networkSpeed"] as? Bool == true {
+            networkSpeed.start()
+        } else {
+            networkSpeed.stop()
+            networkSample = nil
+        }
+        updateTrayAppearance()
+        publish()
+        if let m=monitor{NSEvent.removeMonitor(m);monitor=nil}
+        if config["cloudShortcut"] as? Bool ?? false{monitor=NSEvent.addGlobalMonitorForEvents(matching:[.rightMouseDown,.otherMouseDown]){e in if (e.type == .rightMouseDown && e.modifierFlags.contains(.shift)) || e.type == .otherMouseDown{self.cloudMenu()}}}
+    }
+    private func updateTrayAppearance() {
+        guard let status, let button = status.button else { return }
+        let hint = "RightClick · 单击打开，右键查看更多"
+        guard config["networkSpeed"] as? Bool == true else {
+            status.length = NSStatusItem.squareLength
+            button.attributedTitle = NSAttributedString(string: "")
+            button.imagePosition = .imageOnly
+            button.image = NSImage(systemSymbolName: "cursorarrow.click", accessibilityDescription: "RightClick")
+            button.imageScaling = .scaleProportionallyDown
+            button.toolTip = hint
+            button.setAccessibilityLabel("RightClick")
+            return
+        }
+        let available = networkSample?.status == .available
+        let download = available ? NetworkSpeedSample.formatRate(networkSample!.downloadBytesPerSecond) : "—"
+        let upload = available ? NetworkSpeedSample.formatRate(networkSample!.uploadBytesPerSecond) : "—"
+        button.attributedTitle = NSAttributedString(string: "")
+        button.image = NetworkSpeedStatusImage.make(download: download, upload: upload)
+        button.imagePosition = .imageOnly
+        button.imageScaling = .scaleNone
+        // A fixed width keeps neighboring menu bar items still as the numbers change.
+        status.length = 108
+        let detail: String
+        if available, let sample = networkSample {
+            detail = "下载 \(download) · 上传 \(upload)\n接口：\(sample.interfaces.joined(separator: ", "))（含局域网流量）"
+        } else {
+            detail = networkSample?.status == .unavailable ? "暂无法读取网速，请检查网络连接" : "正在采样网速…"
+        }
+        button.toolTip = "\(hint)\n\(detail)"
+        button.setAccessibilityLabel("RightClick，\(detail)")
+    }
     func cloudMenu(){do{let selected=try apple("tell application \"Finder\"\nset output to {}\nrepeat with itemRef in (get selection)\nset end of output to POSIX path of (itemRef as alias)\nend repeat\nreturn output\nend tell");finderPaths=(1...max(selected.numberOfItems,1)).compactMap{selected.atIndex($0)?.stringValue};finderDir=(try? apple("tell application \"Finder\" to get POSIX path of (target of front Finder window as alias)").stringValue) ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop").path;let m=NSMenu(title:"RightClick");for (title,cmd) in [("新建文件…","create"),("剪切","cut"),("粘贴","paste"),("复制到…","copy"),("移动到…","move"),("拷贝路径","copy_path"),("文件信息","info"),("图片转换…","convert"),("打开操作台","workbench")]{let item=NSMenuItem(title:title,action:#selector(cloudAction(_:)),keyEquivalent:"");item.target=self;item.representedObject=cmd;m.addItem(item)};floatingMenu=m;m.popUp(positioning:nil,at:NSEvent.mouseLocation,in:nil)}catch{finderUI.result("无法读取访达选择",text:error.localizedDescription,paths:[])}}
     @objc func cloudAction(_ item:NSMenuItem){incoming(["cmd":item.representedObject as? String ?? "workbench","paths":finderPaths,"dir":finderDir])}
     @objc func translateGoogle(_ pb:NSPasteboard,userData:String?,error:AutoreleasingUnsafeMutablePointer<NSString?>){translation.show(text:pb.string(forType:.string) ?? "")}
