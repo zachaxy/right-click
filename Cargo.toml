@@ -2,7 +2,7 @@
 name = "rustclick"
 version = "0.1.0"
 edition = "2024"
-description = "A local-first macOS context menu utility with a Rust engine"
+description = "Chenshou, a local-first macOS desktop toolbox with a Rust engine"
 license = "MIT"
 
 [dependencies]

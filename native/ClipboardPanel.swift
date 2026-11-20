@@ -294,7 +294,7 @@ final class ClipboardPanelController: NSObject, NSWindowDelegate, NSTableViewDat
     private func separator() -> NSBox { let box = NSBox(); box.boxType = .separator; return box }
     private func buildWindow() {
         window = ToolPanel(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
-        window.title = "RightClick · 剪贴板"; window.minSize = NSSize(width: 680, height: 440)
+        window.title = "趁手 · 剪贴板"; window.minSize = NSSize(width: 680, height: 440)
         window.titleVisibility = .hidden; window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
         for type in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] { window.standardWindowButton(type)?.isHidden = true }

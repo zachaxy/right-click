@@ -104,12 +104,12 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
             self?.networkSample = sample
             self?.updateTrayAppearance()
         }
-        let menu=NSMenu();let root=NSMenuItem();menu.addItem(root);let app=NSMenu();app.addItem(withTitle:"关于 RightClick",action:#selector(about),keyEquivalent:"");app.addItem(.separator());app.addItem(withTitle:"显示 RightClick",action:#selector(show),keyEquivalent:"1");app.addItem(withTitle:"退出 RightClick",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q");root.submenu=app;let edit=NSMenuItem();edit.title="编辑";menu.addItem(edit);let em=NSMenu(title:"编辑");for (t,a,k) in [("撤销","undo:","z"),("剪切","cut:","x"),("拷贝","copy:","c"),("粘贴","paste:","v"),("全选","selectAll:","a")]{em.addItem(withTitle:t,action:Selector(a),keyEquivalent:k)};edit.submenu=em;NSApp.mainMenu=menu
+        let menu=NSMenu();let root=NSMenuItem();menu.addItem(root);let app=NSMenu();app.addItem(withTitle:"关于趁手",action:#selector(about),keyEquivalent:"");app.addItem(.separator());app.addItem(withTitle:"显示趁手",action:#selector(show),keyEquivalent:"1");app.addItem(withTitle:"退出趁手",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q");root.submenu=app;let edit=NSMenuItem();edit.title="编辑";menu.addItem(edit);let em=NSMenu(title:"编辑");for (t,a,k) in [("撤销","undo:","z"),("剪切","cut:","x"),("拷贝","copy:","c"),("粘贴","paste:","v"),("全选","selectAll:","a")]{em.addItem(withTitle:t,action:Selector(a),keyEquivalent:k)};edit.submenu=em;NSApp.mainMenu=menu
         let translate = app.insertItem(withTitle:"翻译为中文…",action:#selector(showTranslation),keyEquivalent:"t",at:3)
         translate.keyEquivalentModifierMask = [.command, .shift]
         translate.target = self
         let conf=WKWebViewConfiguration();conf.userContentController.add(self,name:"rustclick");web=WKWebView(frame:.zero,configuration:conf);web.navigationDelegate=self;web.setValue(false,forKey:"drawsBackground")
-        window=NSWindow(contentRect:NSRect(x:0,y:0,width:1120,height:780),styleMask:[.titled,.closable,.miniaturizable,.resizable,.fullSizeContentView],backing:.buffered,defer:false);window.title="RightClick · 右键工具箱";window.minSize=NSSize(width:960,height:640);window.titleVisibility = .hidden;window.titlebarAppearsTransparent=true;window.backgroundColor=NSColor(srgbRed:0.961,green:0.961,blue:0.969,alpha:1);window.contentView=web;window.delegate=self;window.isReleasedWhenClosed=false;window.center();window.setFrameAutosaveName("RustClickMain");
+        window=NSWindow(contentRect:NSRect(x:0,y:0,width:1120,height:780),styleMask:[.titled,.closable,.miniaturizable,.resizable,.fullSizeContentView],backing:.buffered,defer:false);window.title="趁手 · 桌面工具箱";window.minSize=NSSize(width:960,height:640);window.titleVisibility = .hidden;window.titlebarAppearsTransparent=true;window.backgroundColor=NSColor(srgbRed:0.961,green:0.961,blue:0.969,alpha:1);window.contentView=web;window.delegate=self;window.isReleasedWhenClosed=false;window.center();window.setFrameAutosaveName("RustClickMain");
         let url=Bundle.main.resourceURL!.appendingPathComponent("ui/index.html");web.loadFileURL(url,allowingReadAccessTo:Bundle.main.resourceURL!.appendingPathComponent("ui"));if FinderRequestRouting.showsWindowOnLaunch(notification){show()}
         DistributedNotificationCenter.default().addObserver(self,selector:#selector(publish),name:Notification.Name("dev.rustclick.requestConfig"),object:nil)
         worker.async {
@@ -173,8 +173,8 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
     @objc func show(){window?.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true)}
     @objc func trayAction(_ sender:NSStatusBarButton) {
         guard NSApp.currentEvent?.type == .rightMouseUp else { show(); return }
-        let menu = NSMenu(title:"RightClick")
-        let open = menu.addItem(withTitle:"打开 RightClick",action:#selector(show),keyEquivalent:"")
+        let menu = NSMenu(title:"趁手")
+        let open = menu.addItem(withTitle:"打开趁手",action:#selector(show),keyEquivalent:"")
         open.target = self
         let translate = menu.addItem(withTitle:"翻译为中文…",action:#selector(showTranslation),keyEquivalent:"t")
         translate.keyEquivalentModifierMask = [.command, .shift]
@@ -192,7 +192,7 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
             let reverse = menu.addItem(withTitle:"反转粘贴队列",action:#selector(reverseClipboardStack),keyEquivalent:""); reverse.target = self
         }
         menu.addItem(.separator())
-        let quit = menu.addItem(withTitle:"退出 RightClick",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"")
+        let quit = menu.addItem(withTitle:"退出趁手",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"")
         quit.target = NSApp
         menu.popUp(positioning:nil,at:NSPoint(x:0,y:sender.bounds.minY-4),in:sender)
     }
@@ -203,7 +203,13 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
     @objc func toggleClipboardStack() { clipboard.toggleStack() }
     @objc func pasteClipboardNext() { clipboard.pasteNext() }
     @objc func reverseClipboardStack() { clipboard.reverseStack() }
-    @objc func about(){let a=NSAlert();a.messageText="RightClick 0.1.0";a.informativeText="Rust 驱动的 macOS 右键工具箱\n所有功能免费，无账号、无订阅。\n独立实现，与 Better365 无关联。";a.runModal()}
+    @objc func about() {
+        let alert = NSAlert()
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        alert.messageText = ["趁手", version].compactMap { $0 }.joined(separator: " ")
+        alert.informativeText = "Rust 驱动的 macOS 桌面工具箱\n所有功能免费，无账号、无订阅。\n独立实现，与 Better365 无关联。"
+        alert.runModal()
+    }
     @objc func publish() {
         var menuConfig = config
         menuConfig.removeValue(forKey: "inputSourceRules")
@@ -226,7 +232,6 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
         if config["showTray"] as? Bool ?? true {
             if status == nil {
                 status = NSStatusBar.system.statusItem(withLength:NSStatusItem.squareLength)
-                status?.button?.image = NSImage(systemSymbolName:"cursorarrow.click",accessibilityDescription:"RightClick")
                 status?.button?.action = #selector(trayAction(_:))
                 status?.button?.target = self
                 status?.button?.sendAction(on:[.leftMouseUp,.rightMouseUp])
@@ -248,15 +253,15 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
     }
     private func updateTrayAppearance() {
         guard let status, let button = status.button else { return }
-        let hint = "RightClick · 单击打开，右键查看更多"
+        let hint = "趁手 · 单击打开，右键查看更多"
         guard config["networkSpeed"] as? Bool == true else {
             status.length = NSStatusItem.squareLength
             button.attributedTitle = NSAttributedString(string: "")
             button.imagePosition = .imageOnly
-            button.image = NSImage(systemSymbolName: "cursorarrow.click", accessibilityDescription: "RightClick")
+            button.image = ToolboxIcon.image
             button.imageScaling = .scaleProportionallyDown
             button.toolTip = hint
-            button.setAccessibilityLabel("RightClick")
+            button.setAccessibilityLabel("趁手")
             return
         }
         let available = networkSample?.status == .available
@@ -275,9 +280,9 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
             detail = networkSample?.status == .unavailable ? "暂无法读取网速，请检查网络连接" : "正在采样网速…"
         }
         button.toolTip = "\(hint)\n\(detail)"
-        button.setAccessibilityLabel("RightClick，\(detail)")
+        button.setAccessibilityLabel("趁手，\(detail)")
     }
-    func cloudMenu(){do{let selected=try apple("tell application \"Finder\"\nset output to {}\nrepeat with itemRef in (get selection)\nset end of output to POSIX path of (itemRef as alias)\nend repeat\nreturn output\nend tell");finderPaths=(1...max(selected.numberOfItems,1)).compactMap{selected.atIndex($0)?.stringValue};finderDir=(try? apple("tell application \"Finder\" to get POSIX path of (target of front Finder window as alias)").stringValue) ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop").path;let m=NSMenu(title:"RightClick");for (title,cmd) in [("新建文件…","create"),("剪切","cut"),("粘贴","paste"),("复制到…","copy"),("移动到…","move"),("拷贝路径","copy_path"),("文件信息","info"),("图片转换…","convert"),("打开操作台","workbench")]{let item=NSMenuItem(title:title,action:#selector(cloudAction(_:)),keyEquivalent:"");item.target=self;item.representedObject=cmd;m.addItem(item)};floatingMenu=m;m.popUp(positioning:nil,at:NSEvent.mouseLocation,in:nil)}catch{finderUI.result("无法读取访达选择",text:error.localizedDescription,paths:[])}}
+    func cloudMenu(){do{let selected=try apple("tell application \"Finder\"\nset output to {}\nrepeat with itemRef in (get selection)\nset end of output to POSIX path of (itemRef as alias)\nend repeat\nreturn output\nend tell");finderPaths=(1...max(selected.numberOfItems,1)).compactMap{selected.atIndex($0)?.stringValue};finderDir=(try? apple("tell application \"Finder\" to get POSIX path of (target of front Finder window as alias)").stringValue) ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop").path;let m=NSMenu(title:"趁手");for (title,cmd) in [("新建文件…","create"),("剪切","cut"),("粘贴","paste"),("复制到…","copy"),("移动到…","move"),("拷贝路径","copy_path"),("文件信息","info"),("图片转换…","convert"),("打开操作台","workbench")]{let item=NSMenuItem(title:title,action:#selector(cloudAction(_:)),keyEquivalent:"");item.target=self;item.representedObject=cmd;m.addItem(item)};floatingMenu=m;m.popUp(positioning:nil,at:NSEvent.mouseLocation,in:nil)}catch{finderUI.result("无法读取访达选择",text:error.localizedDescription,paths:[])}}
     @objc func cloudAction(_ item:NSMenuItem){incoming(["cmd":item.representedObject as? String ?? "workbench","paths":finderPaths,"dir":finderDir])}
     @objc func translateGoogle(_ pb:NSPasteboard,userData:String?,error:AutoreleasingUnsafeMutablePointer<NSString?>){translation.show(text:pb.string(forType:.string) ?? "")}
     @objc func generateQR(_ pb:NSPasteboard,userData:String?,error:AutoreleasingUnsafeMutablePointer<NSString?>){incoming(["cmd":"text","text":pb.string(forType:.string) ?? ""])}

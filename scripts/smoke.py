@@ -2,7 +2,7 @@
 """Exercise the packaged Rust executable on isolated fixtures."""
 import json, os, pathlib, subprocess, tempfile, zipfile
 ROOT=pathlib.Path(__file__).resolve().parents[1]
-APP=ROOT/'dist/RightClick.app/Contents/MacOS/RightClick'
+APP=ROOT/'dist/趁手.app/Contents/MacOS/RightClick'
 with tempfile.TemporaryDirectory(prefix='rustclick-smoke-') as tmp:
  root=pathlib.Path(tmp);env={**os.environ,'RUSTCLICK_DATA_DIR':str(root/'state')}
  env.pop('RUSTCLICK_7ZZ',None)
@@ -11,7 +11,7 @@ with tempfile.TemporaryDirectory(prefix='rustclick-smoke-') as tmp:
   response=json.loads(result.stdout)
   assert response['ok'],response
   return response['data']
- image=ROOT/'build/RustClick.iconset/icon_128x128.png'
+ image=ROOT/'build/AppIcon.iconset/icon_128x128.png'
  for fmt in ['png','jpg','webp','heic','icns','mac_icons','ios_icons']:
   result=call(cmd='convert',paths=[str(image)],dir=str(root),format=fmt)
   target=pathlib.Path(result['paths'][0]);assert target.exists(),target

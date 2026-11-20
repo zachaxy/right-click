@@ -238,7 +238,7 @@ final class InputSourceCoordinator {
                 try JSONEncoder().encode(remembered).write(to: historyURL, options: .atomic)
             }
         } catch {
-            NSLog("RightClick 无法保存应用输入法记录：%@", error.localizedDescription)
+            NSLog("趁手无法保存应用输入法记录：%@", error.localizedDescription)
         }
     }
 }

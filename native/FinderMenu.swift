@@ -91,7 +91,7 @@ enum FinderMenu {
             Group(id:"extract",title:"解压归档",section:"压缩",symbol:"archivebox",defaultLevel:2,entries:[entry("extract","解压归档…","extract",symbol:"archivebox")]),
             Group(id:"icons",title:"设置文件图标",section:"文件工具",symbol:"paintpalette",defaultLevel:2,entries:[entry("icons","设置文件图标…","icons",symbol:"paintpalette")]),
             Group(id:"tools",title:"文件工具",section:"文件工具",symbol:"wrench.and.screwdriver",defaultLevel:grouped ? 3 : 2,entries:toolDefs.map { entry($0.1,$0.0,$0.1,selection:!background.contains($0.1)) }),
-            Group(id:"workbench",title:"操作台入口",section:"应用",symbol:"cursorarrow.click",defaultLevel:2,entries:[entry("workbench","打开 RightClick 操作台","workbench",symbol:"cursorarrow.click",selection:false)])
+            Group(id:"workbench",title:"操作台入口",section:"应用",symbol:"wrench.and.screwdriver",defaultLevel:2,entries:[entry("workbench","打开趁手操作台","workbench",selection:false)])
         ]
         var seen = Set<String>()
         for index in all.indices {
@@ -115,8 +115,8 @@ enum FinderMenu {
     }
     static func build(_ settings: [String:Any], hasSelection: Bool, toolbar: Bool = false,
                       action: Selector, target: AnyObject, store: MenuActionStore) -> NSMenu {
-        let root = NSMenu(title:"RightClick"); root.autoenablesItems = false
-        let nested = toolbar ? root : NSMenu(title:"RightClick"); nested.autoenablesItems = false
+        let root = NSMenu(title:"趁手"); root.autoenablesItems = false
+        let nested = toolbar ? root : NSMenu(title:"趁手"); nested.autoenablesItems = false
         let levels = settings["menuLevels"] as? [String:Int] ?? [:]
         let icons = settings["showIcons"] as? Bool ?? true
         var sections: [String:NSMenu] = [:]
@@ -129,7 +129,10 @@ enum FinderMenu {
                 let item = NSMenuItem(title:inGroup ? entry.title : entry.standaloneTitle,action:action,keyEquivalent:"")
                 item.target = target; item.isEnabled = !entry.needsSelection || hasSelection
                 store.bind(item,request:entry.request)
-                if icons, let symbol = entry.symbol { item.image = NSImage(systemSymbolName:symbol,accessibilityDescription:nil) }
+                if icons {
+                    if entry.id == "workbench" { item.image = ToolboxIcon.image }
+                    else if let symbol = entry.symbol { item.image = NSImage(systemSymbolName:symbol,accessibilityDescription:nil) }
+                }
                 if level == 1 { root.addItem(item) }
                 else if !inGroup { nested.addItem(item) }
                 else {
@@ -147,7 +150,8 @@ enum FinderMenu {
         }
         if !toolbar && nested.numberOfItems > 0 {
             if root.numberOfItems > 0 { root.addItem(.separator()) }
-            let parent = NSMenuItem(title:"RightClick",action:nil,keyEquivalent:""); parent.submenu = nested
+            let parent = NSMenuItem(title:"趁手",action:nil,keyEquivalent:""); parent.submenu = nested
+            if icons { parent.image = ToolboxIcon.image }
             root.addItem(parent)
         }
         return root

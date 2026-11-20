@@ -28,8 +28,6 @@ enum NetworkSpeedStatusImage {
             .font: font,
             NSAttributedString.Key(kCTForegroundColorAttributeName as String): NSColor.black.cgColor
         ]
-        let icon = NSImage(systemSymbolName: "cursorarrow.click", accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: 13, weight: .regular))
         let lines = [download, upload].map {
             CTLineCreateWithAttributedString(NSAttributedString(string: $0, attributes: attributes))
         }
@@ -42,7 +40,7 @@ enum NetworkSpeedStatusImage {
             context.saveGState()
             defer { context.restoreGState() }
             context.textMatrix = .identity
-            icon?.draw(in: NSRect(x: 2, y: 4, width: 14, height: 14))
+            ToolboxIcon.image.draw(in: NSRect(x: 2, y: 4, width: 14, height: 14))
 
             // A shared reference baseline keeps the rows still when digits/units change.
             context.textPosition = .zero

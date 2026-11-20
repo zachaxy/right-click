@@ -22,7 +22,7 @@ class ReleaseValidationTests(unittest.TestCase):
         (self.root / 'Cargo.lock').write_text('[[package]]\nname = "rustclick"\nversion = "0.1.1"\n')
         notes = self.root / 'docs/releases/v0.1.1.md'
         notes.parent.mkdir(parents=True)
-        notes.write_text('# RightClick v0.1.1\n\n修复外接硬盘菜单。\n')
+        notes.write_text('# 趁手 v0.1.1\n\n修复外接硬盘菜单。\n')
 
     def test_signing_configuration_survives_rebuild_and_rejects_missing_identity(self):
         fingerprint = 'A' * 40
@@ -89,10 +89,10 @@ class ReleaseValidationTests(unittest.TestCase):
         (self.root / 'build').mkdir()
         assets = []
         for extension in ['dmg', 'zip']:
-            path = self.root / 'dist' / f'RightClick-0.1.1-arm64.{extension}'
+            path = self.root / 'dist' / f'Chenshou-0.1.1-arm64.{extension}'
             path.write_bytes(extension.encode())
             assets.append({'name': path.name, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()})
-        (self.root / 'dist/RightClick-0.1.1-arm64.sha256').write_text(
+        (self.root / 'dist/Chenshou-0.1.1-arm64.sha256').write_text(
             ''.join(f"{item['sha256']}  {item['name']}\n" for item in assets))
         report = {'version': '0.1.1', 'architecture': 'arm64', 'artifacts': assets}
         (self.root / 'build/distribution-verification.json').write_text(json.dumps(report))
@@ -100,7 +100,7 @@ class ReleaseValidationTests(unittest.TestCase):
     def test_verified_assets_and_tampering(self):
         self.make_artifacts()
         validate_artifacts(self.root, '0.1.1')
-        (self.root / 'dist/RightClick-0.1.1-arm64.zip').write_bytes(b'changed')
+        (self.root / 'dist/Chenshou-0.1.1-arm64.zip').write_bytes(b'changed')
         with self.assertRaises(ValueError):
             validate_artifacts(self.root, '0.1.1')
 

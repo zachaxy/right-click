@@ -20,9 +20,9 @@ final class RustClickFinderSync:FIFinderSync {
     }
     func loadConfig(){if let s=NSPasteboard(name:NSPasteboard.Name("dev.rustclick.menuConfig")).string(forType:.string),let data=s.data(using:.utf8),let value=(try? JSONSerialization.jsonObject(with:data)) as? [String:Any]{settings=value}}
     @objc func update(_ n:Notification){if let s=n.object as? String,let data=s.data(using:.utf8),let c=(try? JSONSerialization.jsonObject(with:data)) as? [String:Any]{settings=c}}
-    override var toolbarItemName:String{"RightClick"}
+    override var toolbarItemName:String{"趁手"}
     override var toolbarItemToolTip:String{"新建文件与常用操作"}
-    override var toolbarItemImage:NSImage{NSImage(systemSymbolName:"cursorarrow.click",accessibilityDescription:"RightClick") ?? NSImage(size:NSSize(width:20,height:20))}
+    override var toolbarItemImage:NSImage{ToolboxIcon.image}
     override func menu(for kind:FIMenuKind)->NSMenu? {
         loadConfig(); actions.reset()
         let control = FIFinderSyncController.default()
@@ -38,7 +38,7 @@ final class RustClickFinderSync:FIFinderSync {
                                 configuration:FinderRequestRouting.openConfiguration()) { _, error in
             if let error = error {
                 board.clearContents()
-                NSLog("RightClick request failed: %@", error.localizedDescription)
+                NSLog("趁手请求失败： %@", error.localizedDescription)
             }
         }
     }

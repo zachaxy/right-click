@@ -18,7 +18,7 @@ test('settings expose the three depths with explicit menu paths and safe dynamic
   assert.match(html,/一级/);assert.match(html,/二级/);assert.match(html,/三级/);
   assert.match(html,/data-menu-level="copy_path"/);
   assert.match(html,/value="1" selected/);
-  assert.match(html,/RightClick/);
+  assert.match(html,/趁手/);
   assert(!html.includes('复制到 <test>'));
   assert(html.includes('&lt;test&gt;'));
 });

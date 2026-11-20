@@ -11,7 +11,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build"
 BUILD.mkdir(exist_ok=True)
 CASES = [
-    ("network-speed-image", ["NetworkSpeedStatusImage.swift"]),
+    ("network-speed-image", ["ToolboxIcon.swift", "NetworkSpeedStatusImage.swift"]),
     ("network-speed", ["NetworkSpeedMonitor.swift"]),
     ("panel-activation", ["ToolPanel.swift", "ClipboardStore.swift", "ClipboardPanel.swift", "ClipboardStack.swift", "ClipboardCoordinator.swift", "TranslationPanel.swift"]),
     ("translation", ["ToolPanel.swift", "TranslationPanel.swift"]),
@@ -22,7 +22,7 @@ CASES = [
     ("clipboard-mcp", ["ClipboardStore.swift", "ClipboardMCP.swift"]),
     ("clipboard-stack", ["ClipboardStack.swift"]),
     ("menu", ["MenuActionStore.swift"]),
-    ("layout", ["MenuActionStore.swift", "FinderMenu.swift"]),
+    ("layout", ["ToolboxIcon.swift", "MenuActionStore.swift", "FinderMenu.swift"]),
     ("routing", ["FinderRequestRouting.swift"]),
     ("volumes", ["FinderVolumeMonitor.swift"]),
     ("actions", ["FinderActions.swift"]),
@@ -42,7 +42,7 @@ for name, sources in CASES:
                         "-o", str(executable)], check=True)
         args = [str(executable)]
         if name == "actions":
-            args.append(str(ROOT / "dist/RightClick.app/Contents/MacOS/RightClick"))
+            args.append(str(ROOT / "dist/趁手.app/Contents/MacOS/RightClick"))
         subprocess.run(args, check=True)
 
 # Exercise the actual Rust -> Swift exported entry point in the signed app bundle.
@@ -57,7 +57,7 @@ with tempfile.TemporaryDirectory(prefix="rightclick-mcp-cli-") as directory:
             "name": "clipboard_search", "arguments": {"query": "build-check"}}},
     ]
     result = subprocess.run(
-        [str(ROOT / "dist/RightClick.app/Contents/MacOS/RightClick"), "--clipboard-mcp"],
+        [str(ROOT / "dist/趁手.app/Contents/MacOS/RightClick"), "--clipboard-mcp"],
         input="".join(json.dumps(request) + "\n" for request in requests), text=True,
         capture_output=True, check=True, timeout=15,
         env={**os.environ, "RUSTCLICK_DATA_DIR": directory})

@@ -14,7 +14,7 @@ pub type NativeFn = unsafe extern "C" fn(*const std::ffi::c_char) -> *mut std::f
 pub static NATIVE: OnceLock<NativeFn> = OnceLock::new();
 pub fn native(v: Value) -> Result<Value> {
     let Some(f) = NATIVE.get() else {
-        bail!("此功能需要在 RightClick 桌面应用中运行")
+        bail!("此功能需要在「趁手」桌面应用中运行")
     };
     let text = std::ffi::CString::new(v.to_string())?;
     let p = unsafe { f(text.as_ptr()) };

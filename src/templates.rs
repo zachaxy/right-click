@@ -27,7 +27,7 @@ pub fn create(p: &Path, format: &str) -> Result<()> {
     match format {
 "docx"|"xlsx"|"pptx"=>office(p,format),
 "psd"=>{let mut b=vec![];b.extend_from_slice(b"8BPS\x00\x01\x00\x00\x00\x00\x00\x00\x00\x03");b.extend_from_slice(&1u32.to_be_bytes());b.extend_from_slice(&1u32.to_be_bytes());b.extend_from_slice(&[0,8,0,3]);b.extend_from_slice(&[0;12]);b.extend_from_slice(&[0,0,255,255,255]);files::write_new(p,&b)},
-"ai"=>files::write_new(p,b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 512 512\n%%Creator: RightClick\n%%EndComments\nshowpage\n%%EOF\n"),
+"ai"=>files::write_new(p,b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 512 512\n%%Creator: Chenshou\n%%EndComments\nshowpage\n%%EOF\n"),
 other=>{let content=match other{"txt"|"md"|"rs"|"py"=>"","rtf"=>"{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Helvetica;}}\\f0\\fs24 \\par}","xml"=>"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<root/>\n","json"=>"{}\n","html"=>"<!doctype html>\n<html lang=\"zh-CN\"><meta charset=\"utf-8\"><title>新页面</title><body></body></html>\n","svg"=>"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"512\"></svg>\n","sh"=>"#!/bin/sh\n","custom"=>"",_=>bail!("此格式请先导入一个模板文件")};files::write_new(p,content.as_bytes())}}
 }
 fn office(p: &Path, format: &str) -> Result<()> {

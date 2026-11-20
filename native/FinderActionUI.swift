@@ -217,7 +217,7 @@ final class DesktopFinderUI: FinderActionUI {
             let token = noticeToken
             DispatchQueue.main.asyncAfter(deadline:.now() + 0.7) { [weak self] in
                 guard let self = self, self.noticeToken == token else { return }
-                self.showNotice("RightClick 正在处理…")
+                self.showNotice("趁手正在处理…")
             }
         }
     }

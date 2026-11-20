@@ -77,13 +77,13 @@ jobs:
       - name: Preserve verified downloads and build report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: RightClick-${{ steps.release.outputs.version }}-arm64
+          name: Chenshou-${{ steps.release.outputs.version }}-arm64
           if-no-files-found: error
           retention-days: 14
           path: |
-            dist/RightClick-${{ steps.release.outputs.version }}-arm64.dmg
-            dist/RightClick-${{ steps.release.outputs.version }}-arm64.zip
-            dist/RightClick-${{ steps.release.outputs.version }}-arm64.sha256
+            dist/Chenshou-${{ steps.release.outputs.version }}-arm64.dmg
+            dist/Chenshou-${{ steps.release.outputs.version }}-arm64.zip
+            dist/Chenshou-${{ steps.release.outputs.version }}-arm64.sha256
             build/distribution-verification.json
 
       - name: Publish tagged release
@@ -96,7 +96,7 @@ jobs:
         run: |
           python3 scripts/release.py --tag "$GITHUB_REF_NAME" --artifacts
           gh release create "$GITHUB_REF_NAME" \
-            "dist/RightClick-$VERSION-arm64.dmg" \
-            "dist/RightClick-$VERSION-arm64.zip" \
-            "dist/RightClick-$VERSION-arm64.sha256" \
-            --verify-tag --title "RightClick $GITHUB_REF_NAME" --notes-file "$NOTES"
+            "dist/Chenshou-$VERSION-arm64.dmg" \
+            "dist/Chenshou-$VERSION-arm64.zip" \
+            "dist/Chenshou-$VERSION-arm64.sha256" \
+            --verify-tag --title "趁手 $GITHUB_REF_NAME" --notes-file "$NOTES"

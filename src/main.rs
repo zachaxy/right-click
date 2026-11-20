@@ -61,7 +61,7 @@ fn main() -> anyhow::Result<()> {
         let h = libc::dlopen(lib.as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL);
         anyhow::ensure!(
             !h.is_null(),
-            "请运行打包后的 RightClick.app：{}",
+            "请运行打包后的「趁手.app」：{}",
             CStr::from_ptr(libc::dlerror()).to_string_lossy()
         );
         if args.get(1).map(String::as_str) == Some("--clipboard-mcp") {

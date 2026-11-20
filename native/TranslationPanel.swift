@@ -277,7 +277,7 @@ final class TranslationPanelController: NSObject, NSWindowDelegate {
         window = ToolPanel(contentRect: NSRect(x: 0, y: 0, width: 880, height: 500),
                          styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         super.init()
-        window.title = "RightClick · 翻译"
+        window.title = "趁手 · 翻译"
         window.minSize = NSSize(width: 680, height: 400)
         window.isReleasedWhenClosed = false
         window.hidesOnDeactivate = false

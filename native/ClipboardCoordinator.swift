@@ -96,7 +96,7 @@ final class ClipboardCoordinator: NSObject {
             let coordinator = Unmanaged<ClipboardCoordinator>.fromOpaque(context).takeUnretainedValue()
             return coordinator.intercept(type: type, event: event)
         }, userInfo: context) else {
-            requestAccessibility("无法启用顺序粘贴的键盘事件监听。请检查 RightClick 的辅助功能权限后重试。"); return
+            requestAccessibility("无法启用顺序粘贴的键盘事件监听。请检查「趁手」的辅助功能权限后重试。"); return
         }
         do { try store.flushPendingCapture() }
         catch {
@@ -228,7 +228,7 @@ final class ClipboardCoordinator: NSObject {
         else { stopStack() }
         guard AXIsProcessTrusted() else {
             advancing = false
-            requestAccessibility("内容已复制。可回到目标应用按 ⌘V；若要直接粘贴，请在系统设置中授予 RightClick 辅助功能权限。"); return
+            requestAccessibility("内容已复制。可回到目标应用按 ⌘V；若要直接粘贴，请在系统设置中授予「趁手」辅助功能权限。"); return
         }
         guard let app = target, !app.isTerminated, app.processIdentifier != getpid() else {
             advancing = false
@@ -289,7 +289,7 @@ final class ClipboardCoordinator: NSObject {
 
     private func report(_ text: String) {
         guard panel.window.attachedSheet == nil else { return }
-        let alert = NSAlert(); alert.messageText = "RightClick 剪贴板"; alert.informativeText = text
+        let alert = NSAlert(); alert.messageText = "趁手 · 剪贴板"; alert.informativeText = text
         panel.show()
         alert.beginSheetModal(for: panel.window)
     }

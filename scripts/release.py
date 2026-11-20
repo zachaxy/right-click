@@ -24,7 +24,7 @@ def metadata(root=ROOT, tag=None):
 
 
 def validate_artifacts(root, version):
-    base = f'RightClick-{version}-arm64'
+    base = f'Chenshou-{version}-arm64'
     checksum = root / 'dist' / f'{base}.sha256'
     actual = {}
     for suffix in ['dmg', 'zip']:

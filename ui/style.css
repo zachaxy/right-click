@@ -24,8 +24,7 @@ svg { flex-shrink: 0; }
 aside { width: var(--sidebar); position: fixed; inset: 0 auto 0 0; background: #efeff2; border-right: 1px solid #00000006; padding: 0 14px; display: flex; flex-direction: column; }
 .dragspace { height: 49px; flex-shrink: 0; }
 .brand { display: flex; align-items: center; gap: 11px; margin: 5px 9px 31px; }
-.logo { width: 39px; height: 39px; flex-shrink: 0; border-radius: 12px; color: #fff; background: linear-gradient(145deg, #55565b, #17181c); box-shadow: inset 0 1px 1px #ffffff55, 0 4px 10px #00000014; display: grid; place-items: center; }
-.logo svg { width: 34px; height: 34px; }
+.logo { width: 39px; height: 39px; flex-shrink: 0; object-fit: contain; }
 .brand strong { display: block; font-size: 21px; font-weight: 650; letter-spacing: -.8px; line-height: 1.2; }
 .brand span { display: block; font-size: 10px; color: var(--muted); margin-top: 5px; }
 .nav-label { color: #86868b; font-size: 10px; font-weight: 550; margin: 0 13px 10px; }
@@ -65,9 +64,7 @@ h3 { font-size: 14px; font-weight: 600; margin: 0; }
 .primary svg, .secondary svg { width: 14px; height: 14px; }
 .launch-hero { min-height: 413px; position: relative; isolation: isolate; overflow: hidden; border-radius: 26px; background: linear-gradient(122deg, #fff 20%, #fcfcff 67%, #eff2fa); box-shadow: 0 12px 45px #20213f05; padding: 47px 35px 57px; margin-top: -9px; }
 .launch-copy { position: relative; z-index: 2; width: 54%; }
-.launch-copy .eyebrow { color: #585861; font-size: 10px; letter-spacing: 1.8px; margin-bottom: 19px; }
 .launch-copy h1 { font-size: clamp(36px, 4.15vw, 53px); font-weight: 650; letter-spacing: -2px; line-height: 1.22; margin-bottom: 19px; }
-.launch-copy h1 span { background: linear-gradient(100deg, #0876e9 5%, #4753cf 48%, #9662c9); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .launch-copy p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.85; }
 .hero-actions { display: flex; align-items: center; gap: 17px; margin-top: 24px; }
 .hero-actions .primary { padding: 11px 20px; font-size: 12px; }

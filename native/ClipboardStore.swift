@@ -92,7 +92,7 @@ final class ClipboardStore {
         guard FileManager.default.fileExists(atPath: index.path) else { return }
         do {
             state = try JSONDecoder().decode(ClipboardState.self, from: Data(contentsOf: index))
-            guard state.version == 1 else { throw error("剪贴板资料版本不兼容，请保留资料并升级 RightClick。") }
+            guard state.version == 1 else { throw error("剪贴板资料版本不兼容，请保留资料并升级「趁手」。") }
             guard state.entries.allSatisfy({ UUID(uuidString: $0.id) != nil }),
                   Set(state.entries.map { $0.id }).count == state.entries.count,
                   Set(state.pinboards.map { $0.id }).count == state.pinboards.count else {
@@ -491,7 +491,7 @@ final class ClipboardStore {
         } else {
             let now = Date()
             entry = ClipboardEntry(id: UUID().uuidString, title: title.isEmpty ? titleFor(text: attributedText.string, kind: "text") : title,
-                                   text: attributedText.string, kind: contentKind(payload, text: attributedText.string), sourceApp: "RightClick", sourceBundleID: "dev.rustclick.app",
+                                   text: attributedText.string, kind: contentKind(payload, text: attributedText.string), sourceApp: "趁手", sourceBundleID: "dev.rustclick.app",
                                    createdAt: now, updatedAt: now, pinboardIDs: pinboardID.map { [$0] } ?? [], ocrText: "", fingerprint: digest(payload))
             try savePayload(payload, id: entry.id)
             next.entries.insert(entry, at: 0)
@@ -548,7 +548,7 @@ final class ClipboardStore {
         let payload = [[ClipboardRepresentation(type: NSPasteboard.PasteboardType.string.rawValue, data: Data(text.utf8))]]
         let now = Date()
         let entry = ClipboardEntry(id: UUID().uuidString, title: title.isEmpty ? titleFor(text: text, kind: "text") : title,
-                                   text: text, kind: contentKind(payload, text: text), sourceApp: "RightClick", sourceBundleID: "dev.rustclick.app",
+                                   text: text, kind: contentKind(payload, text: text), sourceApp: "趁手", sourceBundleID: "dev.rustclick.app",
                                    createdAt: now, updatedAt: now, pinboardIDs: pinboardID.map { [$0] } ?? [], ocrText: "", fingerprint: digest(payload))
         try savePayload(payload, id: entry.id)
         var next = state; next.entries.insert(entry, at: 0)

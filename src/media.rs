@@ -118,7 +118,7 @@ pub fn convert(paths: &[PathBuf], dir: &Path, format: &str) -> Result<Value> {
                         fs::write(
                             temp.join("Contents.json"),
                             serde_json::to_vec_pretty(
-                                &json!({"images":entries,"info":{"version":1,"author":"RightClick"}}),
+                                &json!({"images":entries,"info":{"version":1,"author":"趁手"}}),
                             )?,
                         )?
                     }

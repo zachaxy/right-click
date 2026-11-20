@@ -16,7 +16,7 @@ from build_support import (SOURCE_NAME, SOURCE_URL, SOURCE_SHA256, bundle_versio
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
 BUILD = ROOT / 'build'
-APP = DIST / 'RightClick.app'
+APP = DIST / '趁手.app'
 
 
 def run(*args, capture=False, **kwargs):
@@ -42,12 +42,12 @@ def bundle_manifest(app):
 def include_licenses():
     licenses = APP / 'Contents/Resources/Licenses'
     licenses.mkdir()
-    shutil.copy2(ROOT / 'LICENSE', licenses / 'RightClick-MIT.txt')
+    shutil.copy2(ROOT / 'LICENSE', licenses / 'Chenshou-MIT.txt')
     shutil.copy2(ROOT / 'assets/7ZIP-LICENSE.txt', licenses / '7ZIP-LICENSE.txt')
     cargo = shutil.which('cargo') or Path.home() / '.cargo/bin/cargo'
     metadata = json.loads(output(cargo, 'metadata', '--locked', '--format-version', '1',
                                  '--filter-platform', 'aarch64-apple-darwin'))
-    text = ['RightClick — Rust dependency notices',
+    text = ['趁手 — Rust dependency notices',
             'Includes the locked dependency graph, including build and test tools.', '']
     for package in sorted(metadata['packages'], key=lambda p: (p['name'], p['version'])):
         if package['name'] == 'rustclick':
@@ -72,7 +72,7 @@ def include_licenses():
         '7-Zip 26.03 — unmodified upstream source included alongside the executable.\n'
         f'Source: {SOURCE_URL}\nSHA-256: {SOURCE_SHA256}\n\n'
         'The bundled standalone 7zz was built by Homebrew for arm64 macOS.\n'
-        'RightClick invokes it as a separate process.\n'
+        'Chenshou invokes it as a separate process.\n'
         'Build from the included source on an Apple Silicon Mac with Command Line Tools:\n'
         '  tar -xf 7z2603-src.tar.xz\n'
         '  cd CPP/7zip/Bundles/Alone2\n'
@@ -157,7 +157,7 @@ def main():
     run('codesign', '--force', '--sign', identity, APP)
     run('codesign', '--verify', '--deep', '--strict', APP)
     info, binaries = check_binaries()
-    name = f"RightClick-{info['CFBundleShortVersionString']}-arm64"
+    name = f"Chenshou-{info['CFBundleShortVersionString']}-arm64"
     dmg = DIST / f'{name}.dmg'
     zip_path = DIST / f'{name}.zip'
     expected = bundle_manifest(APP)
@@ -168,7 +168,7 @@ def main():
         run('ditto', APP, stage / APP.name)
         (stage / 'Applications').symlink_to('/Applications', target_is_directory=True)
         shutil.copy2(ROOT / 'docs/INSTALL.zh-CN.txt', stage / '安装说明.txt')
-        run('hdiutil', 'create', '-volname', 'RightClick', '-fs', 'HFS+', '-format', 'UDZO',
+        run('hdiutil', 'create', '-volname', '趁手', '-fs', 'HFS+', '-format', 'UDZO',
             '-imagekey', 'zlib-level=9', '-srcfolder', stage, '-ov', dmg)
         run('hdiutil', 'verify', dmg)
         attachment = plistlib.loads(run('hdiutil', 'attach', '-readonly', '-nobrowse', '-plist',

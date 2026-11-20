@@ -2,7 +2,7 @@
 import sys
 
 if sys.version_info < (3, 11):
-    raise SystemExit('RightClick build scripts require Python 3.11 or newer.')
+    raise SystemExit('趁手 build scripts require Python 3.11 or newer.')
 
 import hashlib
 import os

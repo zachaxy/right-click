@@ -82,7 +82,7 @@ final class EnglishPunctuationMonitor {
         guard !bundleIDs.isEmpty else { stop(); return }
         guard AXIsProcessTrusted() else {
             stop()
-            status = "启用英文标点需要在系统设置中允许 RightClick 使用辅助功能。"
+            status = "启用英文标点需要在系统设置中允许「趁手」使用辅助功能。"
             return
         }
         if isRunning { return }
