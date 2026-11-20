@@ -180,6 +180,7 @@ private final class ClipboardShortcutEditor: NSObject {
 /// The panel owns presentation only. The application supplies focus restoration and global paste actions.
 final class ClipboardPanelController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSMenuDelegate, NSMenuItemValidation, WKNavigationDelegate {
     let store: ClipboardStore
+    private let copyPasteboard: NSPasteboard
     private(set) var window: NSPanel!
     var onPaste: (([ClipboardEntry], Bool) -> Void)?
     var onStartStack: (() -> Void)?
@@ -220,8 +221,9 @@ final class ClipboardPanelController: NSObject, NSWindowDelegate, NSTableViewDat
         formatter.locale = Locale(identifier: "zh_CN"); return formatter
     }()
 
-    init(store: ClipboardStore) {
+    init(store: ClipboardStore, copyPasteboard: NSPasteboard = .general) {
         self.store = store
+        self.copyPasteboard = copyPasteboard
         super.init()
         buildWindow()
         let previous = store.onChange
@@ -368,7 +370,7 @@ final class ClipboardPanelController: NSObject, NSWindowDelegate, NSTableViewDat
         ])
         let rail = NSStackView(); rail.orientation = .vertical; rail.spacing = 4; rail.alignment = .centerX
         rail.edgeInsets = NSEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
-        let copy = iconButton("doc.on.doc", title: "复制所选内容", action: #selector(copySelected))
+        let copy = iconButton("doc.on.doc", title: "复制所选内容（⌘C）", action: #selector(copySelected))
         let paste = iconButton("arrow.turn.down.left", title: "执行粘贴（↩，⇧↩ 纯文本）", action: #selector(pasteSelected))
         paste.contentTintColor = .controlAccentColor
         let preview = iconButton("eye", title: "快速预览（空格）", action: #selector(showPreview))
@@ -478,7 +480,7 @@ final class ClipboardPanelController: NSObject, NSWindowDelegate, NSTableViewDat
         let shortcut = (store.settings.shortcuts ?? ClipboardShortcutEditor.defaults)["panel"]?.label ?? "未设置快捷键"
         let state = !store.settings.enabled ? "未开启记录" : store.settings.paused ? "已暂停" : "正在记录"
         status.stringValue = store.lastError ?? shortcutWarning ?? statusNote ?? stackStatus ?? "\(state) · \(rows.count) 条    ←→ 分类 · ↑↓ 选择 · ↩ 粘贴 · \(shortcut) 唤出"
-        status.toolTip = status.stringValue + "；搜索框为空或列表获得焦点时，←→ 切换分类；⌘1–9 快速粘贴；⇧↩ 纯文本；单击勾选，双击粘贴"
+        status.toolTip = status.stringValue + "；⌘C 复制当前条目，选中搜索文字时复制文字；搜索框为空或列表获得焦点时，←→ 切换分类；⌘1–9 快速粘贴；⇧↩ 纯文本；单击勾选，双击粘贴"
         let favorites = store.entries.filter { !$0.pinboardIDs.isEmpty }.count
         for (index, tab) in tabs.enumerated() {
             tab.state = activeTab == index ? .on : .off
@@ -629,12 +631,35 @@ final class ClipboardPanelController: NSObject, NSWindowDelegate, NSTableViewDat
         if event.keyCode == 49, modifiers.isEmpty, window.firstResponder === table { showPreview(); return true }
         if event.keyCode == 36 && !modifiers.contains(.command) { paste(plain: modifiers.contains(.shift) || store.settings.pasteAsPlainText == true); return true }
         if (event.keyCode == 125 || event.keyCode == 126), !modifiers.contains(.command), !rows.isEmpty {
+            // Arrow navigation targets a history item while keeping the query
+            // editable. An earlier text selection must not capture its copy.
+            if let editor = search.currentEditor() as? NSTextView, window.firstResponder === editor {
+                editor.setSelectedRange(NSRange(location: NSMaxRange(editor.selectedRange()), length: 0))
+            }
             moveCursor(to: min(max(currentRow + (event.keyCode == 125 ? 1 : -1), 0), rows.count - 1))
             return true
         }
-        if modifiers.contains(.command), event.charactersIgnoringModifiers == "c", window.firstResponder === table { copy(plain: modifiers.contains(.shift)); return true }
+        let shortcutModifiers = modifiers.intersection([.command, .shift, .option, .control])
+        if (shortcutModifiers == .command || shortcutModifiers == [.command, .shift]),
+           event.charactersIgnoringModifiers?.lowercased() == "c" {
+            // Preserve native copying of selected search text and other editors.
+            if let editor = window.firstResponder as? NSTextView,
+               editor !== search.currentEditor() || editor.selectedRange().length > 0 { return false }
+            copy(plain: shortcutModifiers.contains(.shift)); return true
+        }
         if modifiers.contains(.command), event.charactersIgnoringModifiers == "f" { window.makeFirstResponder(search); return true }
         if modifiers.contains(.command), event.charactersIgnoringModifiers == "n" { newText(); return true }
+        let characters = event.characters.flatMap { $0.isEmpty ? nil : $0 } ?? event.charactersIgnoringModifiers ?? ""
+        if window.firstResponder === table, modifiers.intersection([.command, .control]).isEmpty,
+           !characters.isEmpty, characters.unicodeScalars.allSatisfy({
+               !CharacterSet.controlCharacters.contains($0) && !(0xF700...0xF8FF).contains($0.value)
+           }), window.makeFirstResponder(search), let editor = search.currentEditor() as? NSTextView {
+            editor.setSelectedRange(NSRange(location: editor.string.utf16.count, length: 0))
+            // Send the original first keystroke through AppKit's text input path
+            // so input methods and dead keys work, then consume it exactly once.
+            editor.keyDown(with: event)
+            return true
+        }
         return false
     }
     private func perform(_ operation: () throws -> Void) {
@@ -651,7 +676,7 @@ final class ClipboardPanelController: NSObject, NSWindowDelegate, NSTableViewDat
     private func copy(plain: Bool) {
         guard !selected.isEmpty else { NSSound.beep(); return }
         do {
-            try store.write(ids: selected.map { $0.id }, plainText: plain)
+            try store.write(ids: selected.map { $0.id }, to: copyPasteboard, plainText: plain)
             note(plain ? "已复制为纯文本，可在目标应用按 ⌘V" : "已复制，可在目标应用按 ⌘V")
         } catch { presentError(error.localizedDescription) }
     }

@@ -41,6 +41,8 @@ for (name, window, show, hide) in panels {
           "\(name) show must not activate the entire application and raise its main window")
     check(window.styleMask.contains(.nonactivatingPanel),
           "\(name) uses a nonactivating panel to preserve the current application's windows")
+    check(window.level == .floating,
+          "\(name) stays above the foreground application's normal windows without activating the app")
     check(window.canBecomeKey && !window.canBecomeMain,
           "\(name) can receive keyboard input without becoming the application's main window")
     check(!window.hidesOnDeactivate && !window.becomesKeyOnlyIfNeeded,
@@ -57,6 +59,27 @@ for (name, window, show, hide) in panels {
     hide()
     check(!window.isVisible, "\(name) hides after use")
 }
+// Quick Look is a separate tool window and must stay above the floating history
+// panel. Its contents are an isolated text fixture, never user clipboard data.
+let previewTitle = "RightClick isolated preview fixture"
+_ = try store.addText("A local fixture for checking preview window ordering.", title: previewTitle)
+let previewObserver = NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: nil) { notification in
+    if let window = notification.object as? NSWindow, window.title == previewTitle {
+        window.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
+    }
+}
+let activationCountBeforePreview = app.activationRequests.count
+clipboard.perform(NSSelectorFromString("showPreview"))
+if let preview = app.windows.first(where: { $0.title == previewTitle }) {
+    check(preview.level == .floating && preview.styleMask.contains(.nonactivatingPanel),
+          "clipboard preview floats above normal windows while preserving nonactivating behavior")
+    check(app.activationRequests.count == activationCountBeforePreview,
+          "opening clipboard preview does not activate the entire application")
+} else {
+    check(false, "the local fixture opens an actual clipboard preview window")
+}
+clipboard.hide()
+NotificationCenter.default.removeObserver(previewObserver)
 // The foreground application can still be external while a nonactivating panel
 // owns keyboard focus. Its editor must receive Cmd-V instead of advancing the
 // clipboard queue, without suppressing normal stack paste into an external app.

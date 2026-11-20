@@ -21,7 +21,7 @@ _ = try store.importContent(from: board)
 let pinned = try store.addText("Pinned panel fixture", pinboardID: favorite.id)
 let newest = try store.addText("Newest panel fixture")
 
-let panel = ClipboardPanelController(store: store)
+let panel = ClipboardPanelController(store: store, copyPasteboard: board)
 panel.window.setFrameAutosaveName("")
 var checks = 0
 func check(_ condition: @autoclosure () -> Bool, _ message: String) {
@@ -246,4 +246,137 @@ check(activeTabTitle() == "文本" && table.numberOfRows == 1 && panel.window.fi
       "Left can leave an empty category and preserves results-list focus")
 check(!panel.window.isVisible && app.activationPolicy() == .prohibited && !store.settings.enabled,
       "tab-key tests never show a window, enable recording or require accessibility permission")
+
+// Row navigation intentionally leaves typing in the search editor. Cmd-C must
+// still copy the current result, using the real payload writer on a named board.
+let copyRich = try store.editRichText(attributedText: NSAttributedString(
+    string: "keyboard-copy rich history fixture", attributes: [.font: NSFont.boldSystemFont(ofSize: 14)]),
+    title: "Keyboard copy rich fixture")
+let copyNewest = try store.addText("keyboard-copy newest history fixture")
+func resetCopyBoard() {
+    board.clearContents()
+    board.setString("copy-test sentinel", forType: .string)
+}
+selectTab("全部"); searchFor("keyboard-copy"); editor = focusSearch()
+editor.setSelectedRange(NSRange(location: editor.string.utf16.count, length: 0))
+dispatchKey(125, "\u{F701}", modifiers: hardwareArrowFlags)
+check(panel.window.firstResponder === editor && editor.selectedRange().length == 0 && table.selectedRowIndexes.isEmpty,
+      "Down highlights a history row while the unselected search editor retains keyboard focus")
+resetCopyBoard(); dispatchKey(8, "c", modifiers: .command)
+check(board.string(forType: .string) == copyRich.text && board.data(forType: .rtf) != nil,
+      "Cmd-C after Down copies the highlighted record with its rich-text payload")
+dispatchKey(126, "\u{F700}", modifiers: hardwareArrowFlags)
+resetCopyBoard(); dispatchKey(8, "c", modifiers: .command)
+check(board.string(forType: .string) == copyNewest.text,
+      "Cmd-C after Up copies the newly highlighted record without clicking the toolbar")
+
+searchFor("keyboard-copy"); editor = focusSearch()
+editor.setSelectedRange(NSRange(location: 0, length: editor.string.utf16.count))
+dispatchKey(125, "\u{F701}", modifiers: hardwareArrowFlags)
+check(panel.window.firstResponder === editor && editor.selectedRange().length == 0 && search.stringValue == "keyboard-copy",
+      "Down collapses an old query selection without clearing the query or moving typing out of search")
+resetCopyBoard(); dispatchKey(8, "c", modifiers: .command)
+check(board.string(forType: .string) == copyRich.text,
+      "an initially selected query does not defeat copying the row chosen with Down")
+
+// An explicit text selection made after navigation belongs to the editor. The
+// hidden application does not deliver unhandled keys, so test non-interception
+// first, then ask the native editor to write its actual selection to our board.
+editor.setSelectedRange(NSRange(location: 0, length: 8))
+resetCopyBoard(); dispatchKey(8, "c", modifiers: .command)
+check(board.string(forType: .string) == "copy-test sentinel" && editor.selectedRange() == NSRange(location: 0, length: 8),
+      "Cmd-C preserves an explicit search-text selection instead of copying a history record")
+let queryCopyType = editor.writablePasteboardTypes.first!
+check(editor.writeSelection(to: board, types: [queryCopyType]) && board.string(forType: queryCopyType) == "keyboard",
+      "the search editor's ordinary copy selection remains the selected query text")
+editor.setSelectedRange(NSRange(location: editor.string.utf16.count, length: 0))
+resetCopyBoard(); dispatchKey(8, "C", modifiers: [.command, .shift])
+check(board.string(forType: .string) == copyRich.text && board.data(forType: .rtf) == nil,
+      "Cmd-Shift-C from the search caret copies the current rich record as plain text")
+resetCopyBoard(); dispatchKey(8, "C", modifiers: [.command, .capsLock])
+check(board.string(forType: .string) == copyRich.text && board.data(forType: .rtf) != nil,
+      "Caps Lock does not change Cmd-C history copying")
+
+panel.window.makeFirstResponder(table)
+resetCopyBoard(); dispatchKey(8, "c", modifiers: .command)
+check(board.string(forType: .string) == copyRich.text,
+      "Cmd-C still copies the current record when the result table has focus")
+table.selectRowIndexes(IndexSet([0, 1]), byExtendingSelection: false)
+resetCopyBoard(); dispatchKey(8, "c", modifiers: .command)
+check(board.string(forType: .string) == copyNewest.text + "\n" + copyRich.text,
+      "Cmd-C preserves multi-row copying in displayed order")
+table.deselectAll(nil); editor = focusSearch()
+editor.setSelectedRange(NSRange(location: editor.string.utf16.count, length: 0))
+for modifiers: NSEvent.ModifierFlags in [[.command, .option], [.command, .control], [.command, .shift, .option]] {
+    resetCopyBoard(); dispatchKey(8, "c", modifiers: modifiers)
+    check(board.string(forType: .string) == "copy-test sentinel",
+          "other modified C shortcuts do not overwrite the clipboard with history (flags \(modifiers.rawValue))")
+}
+editor = beginComposition()
+resetCopyBoard(); dispatchKey(8, "c", modifiers: .command)
+check(board.string(forType: .string) == "copy-test sentinel" && editor.hasMarkedText(),
+      "Cmd-C during input-method composition is left to the editor")
+editor.unmarkText(); panel.window.makeFirstResponder(nil)
+check(!panel.window.isVisible && !store.settings.enabled,
+      "copy shortcut checks never show a window, access the general pasteboard or enable recording")
+
+// A list click leaves the table as first responder. The first printable event
+// must enter the native search editor exactly once, then normal editing resumes.
+selectTab("全部"); searchFor(""); panel.window.makeFirstResponder(table)
+dispatchKey(40, "k"); settle()
+check(search.currentEditor() === panel.window.firstResponder && search.stringValue == "k",
+      "typing from the result table focuses search and preserves the first character exactly once")
+guard let typingEditor = search.currentEditor() as? NSTextView else { fatalError("typing search editor unavailable") }
+// The hidden application does not route unhandled events into its field editor;
+// deliver later ordinary typing directly to the native editor that now owns it.
+let continuedTyping = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+    windowNumber: panel.window.windowNumber, context: nil, characters: "e", charactersIgnoringModifiers: "e",
+    isARepeat: false, keyCode: 14)!
+typingEditor.keyDown(with: continuedTyping); settle()
+check(search.stringValue == "ke" && panel.window.firstResponder === typingEditor,
+      "continued typing appends normally after the initial table-to-search handoff")
+
+searchFor(""); panel.window.makeFirstResponder(table)
+dispatchKey(0, "A", modifiers: .shift); settle()
+check(search.stringValue == "A" && search.currentEditor() === panel.window.firstResponder,
+      "uppercase typing from the table preserves the original shifted character")
+searchFor(""); panel.window.makeFirstResponder(table)
+dispatchKey(43, ","); settle()
+check(search.stringValue == "," && search.currentEditor() === panel.window.firstResponder,
+      "printable punctuation from the table becomes search text")
+searchFor("keyboard-"); panel.window.makeFirstResponder(table)
+dispatchKey(8, "c"); settle()
+check(search.stringValue == "keyboard-c" && table.numberOfRows == 2,
+      "typing from the table appends to an existing query and refreshes filtered results")
+panel.window.makeFirstResponder(table)
+dispatchKey(31, "o"); settle()
+check(search.stringValue == "keyboard-co",
+      "repeated table-to-search handoffs append once without replacing or duplicating the query")
+
+for (code, characters, modifiers): (UInt16, String, NSEvent.ModifierFlags) in [
+    (51, "\u{7f}", []), (122, "\u{F704}", [.function]), (0, "a", .command), (0, "a", .control)
+] {
+    searchFor("keyboard-copy"); panel.window.makeFirstResponder(table)
+    dispatchKey(code, characters, modifiers: modifiers); settle()
+    check(panel.window.firstResponder === table && search.stringValue == "keyboard-copy",
+          "nontext or command/control input does not redirect from the table (key \(code), flags \(modifiers.rawValue))")
+}
+searchFor("keyboard-copy"); panel.window.makeFirstResponder(table)
+dispatchKey(125, "\u{F701}", modifiers: hardwareArrowFlags)
+resetCopyBoard(); dispatchKey(8, "c", modifiers: .command)
+check(panel.window.firstResponder === table && board.string(forType: .string) == copyRich.text,
+      "Down and Cmd-C still select and copy history instead of starting a search")
+dispatchKey(126, "\u{F700}", modifiers: hardwareArrowFlags)
+resetCopyBoard(); dispatchKey(8, "c", modifiers: .command)
+check(panel.window.firstResponder === table && board.string(forType: .string) == copyNewest.text,
+      "Up navigation and history copying remain intact after typing handoffs")
+
+editor = beginComposition()
+let markedBeforeTyping = editor.markedRange()
+dispatchKey(0, "a")
+check(panel.window.firstResponder === editor && editor.hasMarkedText() && editor.markedRange() == markedBeforeTyping,
+      "typing while the native editor is composing is not redirected or manually appended")
+editor.unmarkText(); panel.window.makeFirstResponder(nil)
+check(!panel.window.isVisible && app.activationPolicy() == .prohibited && !store.settings.enabled,
+      "type-to-search checks remain isolated from visible windows and clipboard monitoring")
 print("Clipboard panel: \(checks) isolated UI checks passed")
