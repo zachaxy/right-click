@@ -87,20 +87,6 @@ func nativeWork(_ req:[String:Any])throws->[String:Any] {
     }
 }
 func failure(_ text:String)->NSError{NSError(domain:"RightClick",code:1,userInfo:[NSLocalizedDescriptionKey:text])}
-private extension NetworkSpeedSample {
-    static func formatRate(_ bytesPerSecond: Double) -> String {
-        guard bytesPerSecond.isFinite, bytesPerSecond > 0 else { return "0 B/s" }
-        let units = ["B/s", "KB/s", "MB/s", "GB/s", "TB/s"]
-        var value = bytesPerSecond
-        var unit = 0
-        while value >= 1000 && unit < units.count - 1 {
-            value /= 1000
-            unit += 1
-        }
-        return String(format: unit == 0 ? "%.0f %@" : "%.1f %@",
-                      locale: Locale(identifier: "en_US_POSIX"), value, units[unit])
-    }
-}
 @_cdecl("rustclick_native") public func nativeCall(_ p:UnsafePointer<CChar>?)->UnsafeMutablePointer<CChar>? {guard let p=p else{return nil};let req=decode(String(cString:p));var result:[String:Any]=[:];let work={do{result=try nativeWork(req)}catch{result=["error":error.localizedDescription]}};if Thread.isMainThread{work()}else{DispatchQueue.main.sync(execute:work)};return strdup(encode(result))}
 
 class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavigationDelegate,NSWindowDelegate {
@@ -274,14 +260,14 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
             return
         }
         let available = networkSample?.status == .available
-        let download = available ? NetworkSpeedSample.formatRate(networkSample!.downloadBytesPerSecond) : "—"
-        let upload = available ? NetworkSpeedSample.formatRate(networkSample!.uploadBytesPerSecond) : "—"
+        let download = available ? NetworkSpeedStatusImage.formatRate(networkSample!.downloadBytesPerSecond) : "—"
+        let upload = available ? NetworkSpeedStatusImage.formatRate(networkSample!.uploadBytesPerSecond) : "—"
+        let image = NetworkSpeedStatusImage.make(download: download, upload: upload)
         button.attributedTitle = NSAttributedString(string: "")
-        button.image = NetworkSpeedStatusImage.make(download: download, upload: upload)
+        button.image = image
         button.imagePosition = .imageOnly
         button.imageScaling = .scaleNone
-        // A fixed width keeps neighboring menu bar items still as the numbers change.
-        status.length = 108
+        status.length = image.size.width
         let detail: String
         if available, let sample = networkSample {
             detail = "下载 \(download) · 上传 \(upload)\n接口：\(sample.interfaces.joined(separator: ", "))（含局域网流量）"

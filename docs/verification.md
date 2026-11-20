@@ -131,11 +131,13 @@ Office 测试验证真实 Open XML 包结构，不等于在所有 Office/Adobe �
 实际对照发现，`NET_RT_IFLIST2` 虽然使用 `if_data64`，对第三方程序仍会把字节计数截为低 32 位并向下按 1024 字节取整，导致低速量化和 4 GiB 回绕。[Apple XNU 的路由统计实现](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/net/rtsock.c#L2198)及 `ALIGN_BYTES` 宏解释了这一行为。[IFDATA_GENERAL 的实现](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/net/if_mib.c#L120)直接导出完整计数；本机普通用户权限实测可读，无需私有 entitlement 或新增权限。
 
 - 51 项原生采样检查通过：完整大计数及非 1024 对齐字节、真实时间间隔、计数回退、接口身份与状态变化、多物理接口聚合、虚拟接口过滤、失败响应、停用、模拟睡眠恢复及迟到回调隔离。其中 2 项是 `en1` 真实上下行与 netstat 的包围对照，已纳入原生回归测试；本机跳过 0 个接口，无可比接口时会明确输出数量。
-- Rust 20 项、界面 12 项、发布校验 9 项通过，Clippy 无警告。最终版本完整构建、完整原生测试、18 组打包 smoke 检查与代码签名验证通过。
+- 首次网速功能实现时，Rust 20 项、界面 12 项、发布校验 9 项通过，Clippy 无警告；完整构建、完整原生测试、18 组打包 smoke 检查与代码签名验证通过。
 
-### 实际流量对照
+### 实际流量对照（首版 `1d50e5d`）
 
 将生产 Reader、Accumulator、Timer、Renderer 原样编译为独立验证进程，并从 `App.swift` 提取实际 formatter；每次先读取 `/usr/sbin/netstat -ibn`，再调用生产 reader，再读一次 netstat。逐接口检查生产计数是否位于两个系统读数之间，避免拿不同时间的瞬时数字直接相减。验证脚本每次重编译，并记录源文件和可执行文件 SHA-256，确认采样期间源码没有改变。
+
+下述为首版的采集记录；后续 Stats 布局调整没有改动采样及速率计算。显示 formatter 已移至 `NetworkSpeedStatusImage`，精度改为后文的 Stats 规则；历史记录中的显示字符串及提取脚本对应首版。
 
 通过 Cloudflare 官方测速端点实际下载 8 MiB、上传 4 MiB 随机测试数据，分别限速 512 KiB/s 和 256 KiB/s，均返回 HTTP 200；包含传输前的日常背景流量及传输后的采样，共 62 个快照、61 个有效速率。记录接口为 `en1`；同时存在活跃的 `utun1024`，没有重复计入。
 
@@ -146,12 +148,17 @@ Office 测试验证真实 Open XML 包结构，不等于在所有 Office/Adobe �
 
 原始记录与脚本在 `build/network-speed-live/`（忽略目录）：`samples.jsonl`、`workloads.json`、`result.json`、`probe.swift`、`run.py`、`analyze.py`。初始失败证据保留于 `before-fix/`；修复后第一次对照的计数检查已全部通过，但上传端点的读取时间窗口过宽，未满足事先设置的 1% 对照区间宽度要求，保留在 `after-fix-during-build/`。构建结束后原样重跑，最终全部通过。
 
-### 菜单栏布局
+### 菜单栏布局与数值格式（按 Stats 规则）
 
-保留左侧 RightClick 图标，在同一张 94×22 pt 透明模板图中绘制两行文字并整体垂直居中。数字和单位整行右对齐；每行箭头跟随文字移动，保持较小间距。固定按钮宽度，避免相邻菜单栏项目随速率变化而移动。
+核对 [Stats 双行绘制器](https://github.com/exelban/stats/blob/3e97046d7032c514fe631812b2a3ed36122a706b/Kit/Widgets/Speed.swift#L338-L401)后，采用 7 pt 固定箭头列、48 pt 右对齐数值列、9 pt light 系统字体。保留用户选择的 14 pt RightClick 图标，图标与网速组件之间为 2 pt，左右各 2 pt；正常总宽为 75 pt，替代原先的 108 pt 按钮。上下箭头不随数字移动，图标与箭头之间不会因短数字留下大片空白。
 
-- 174 项真实绘制器的 1×/2× 像素检查通过，包括上下留白、视觉中心、固定图标、文字右边界及箭头间距，覆盖 `64.4 KB/s / 6.1 KB/s`、最大 `1000.0 KB/s`、空闲和占位状态。
-- 用户截图对应两行的文字右边缘一致，箭头后的可见间距约 4–4.5 pt。已目视核对 `build/network-speed-image-preview.png`，这是实际绘制器的离屏预览，并非顶部菜单栏截图。
-- 已更新并重新启动 `/Applications/RightClick.app`：更新前验证既有签名身份兼容，更新后验证签名及全部文件与构建产物一致；实际设置页确认「显示菜单栏图标」和「显示实时网速」仍然开启。旧版备份为 `build/installation-backups/network-speed-final-20261121-014505/RightClick.zip`。
+默认数值格式采用 [Stats 的十进制 byte 规则](https://github.com/exelban/stats/blob/3e97046d7032c514fe631812b2a3ed36122a706b/Kit/helpers.swift#L152-L180)：低于 1 KB/s 显示 `0 KB/s`；KB/s 为整数；低于 100 MB/s 的 MB/s 保留一位小数，之后显示整数；GB/s、TB/s 保留一位小数。这只改变显示精度，完整原始速率仍按实际字节差及时间计算。
+
+与 Stats 默认配置的区别明确保留：RightClick 图标仍显示，下载仍在上、上传在下（对应 Stats 支持的 `io` 顺序选项）；极端超长文本允许数值列扩宽以防裁切，常见网速保持 75×22 pt 不变。
+
+- 129 项检查通过，包括真实 formatter 的单位/精度边界与无效输入、7 组实际文本的 1×/2× 像素验证、固定图标和箭头、右边界、上下留白与超长值不裁切。
+- 已目视核对 `build/network-speed-image-preview.png` 的浅色/深色预览，包含用户截图对应的 `2 KB/s / 6 KB/s`。该图来自实际绘制器的离屏渲染，并非顶部菜单栏截图。
+- 此次显示调整的完整构建、代码签名与打包 smoke 检查通过；采样源文件未改动，因此没有重复产生网络测速流量。
+- 已更新并重新启动 `/Applications/RightClick.app`，验证安装文件与构建产物一致、签名有效，实际设置页确认网速仍然开启。更新前备份：`build/installation-backups/network-speed-stats-layout-20261121-015841/RightClick.zip`。
 
 真实断网、Wi-Fi/有线切换及整机休眠未执行，相应重置行为由注入测试验证；未进行能耗基准测试。
