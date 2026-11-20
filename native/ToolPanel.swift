@@ -13,5 +13,8 @@ class ToolPanel: NSPanel {
                    backing: backing, defer: flag)
         hidesOnDeactivate = false
         becomesKeyOnlyIfNeeded = false
+        // A nonactivating panel can be key yet remain behind the foreground
+        // app's normal windows. Keep shortcut tools above those windows.
+        level = .floating
     }
 }
