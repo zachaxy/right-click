@@ -11,10 +11,12 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build"
 BUILD.mkdir(exist_ok=True)
 CASES = [
+    ("panel-activation", ["ToolPanel.swift", "ClipboardStore.swift", "ClipboardPanel.swift", "ClipboardStack.swift", "ClipboardCoordinator.swift", "TranslationPanel.swift"]),
+    ("translation", ["ToolPanel.swift", "TranslationPanel.swift"]),
     ("input-source", ["InputSourceSettings.swift", "InputSourceCoordinator.swift"]),
     ("english-punctuation", ["EnglishPunctuation.swift"]),
     ("clipboard", ["ClipboardStore.swift"]),
-    ("clipboard-panel", ["ClipboardStore.swift", "ClipboardPanel.swift"]),
+    ("clipboard-panel", ["ToolPanel.swift", "ClipboardStore.swift", "ClipboardPanel.swift"]),
     ("clipboard-mcp", ["ClipboardStore.swift", "ClipboardMCP.swift"]),
     ("clipboard-stack", ["ClipboardStack.swift"]),
     ("menu", ["MenuActionStore.swift"]),
@@ -28,7 +30,11 @@ for name, sources in CASES:
         main = pathlib.Path(directory) / "main.swift"
         shutil.copyfile(ROOT / "tests" / f"{name}-main.swift", main)
         executable = BUILD / f"{name}-tests"
-        frameworks = ["Cocoa", "Quartz", "WebKit"] if name == "clipboard-panel" else ["Cocoa"]
+        frameworks = {
+            "clipboard-panel": ["Cocoa", "Quartz", "WebKit"],
+            "translation": ["Cocoa", "SwiftUI", "Translation", "NaturalLanguage"],
+            "panel-activation": ["Cocoa", "Quartz", "WebKit", "SwiftUI", "Translation", "NaturalLanguage"],
+        }.get(name, ["Cocoa"])
         subprocess.run(["swiftc", *[str(ROOT / "native" / source) for source in sources],
                         str(main), *[argument for framework in frameworks for argument in ("-framework", framework)],
                         "-o", str(executable)], check=True)

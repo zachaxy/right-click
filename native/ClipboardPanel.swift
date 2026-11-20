@@ -23,7 +23,7 @@ private final class ClipboardSearchField: NSSearchField {
     }
 }
 
-private final class ClipboardQuickLookWindow: NSPanel {
+private final class ClipboardQuickLookWindow: ToolPanel {
     var dismiss: (() -> Void)?
     var closeOnSpace = true
     override func keyDown(with event: NSEvent) {
@@ -240,9 +240,9 @@ final class ClipboardPanelController: NSObject, NSWindowDelegate, NSTableViewDat
 
     func show() {
         refresh(); window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true); window.makeFirstResponder(search)
+        window.makeFirstResponder(search)
     }
-    func toggle() { window.isVisible && NSApp.isActive && window.isKeyWindow ? hide() : show() }
+    func toggle() { window.isVisible && window.isKeyWindow ? hide() : show() }
     func hide() { filterPopover?.close(); closePreview(); window.orderOut(nil) }
     func setStackStatus(active: Bool, count: Int) {
         stackStatus = active ? "队列已开启 · 剩余 \(count) 条" : nil
@@ -291,7 +291,7 @@ final class ClipboardPanelController: NSObject, NSWindowDelegate, NSTableViewDat
     }
     private func separator() -> NSBox { let box = NSBox(); box.boxType = .separator; return box }
     private func buildWindow() {
-        window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
+        window = ToolPanel(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.title = "RightClick · 剪贴板"; window.minSize = NSSize(width: 680, height: 440)
         window.titleVisibility = .hidden; window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true

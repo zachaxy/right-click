@@ -142,6 +142,11 @@ final class ClipboardCoordinator: NSObject {
         return true
     }
 
+    static func shouldInterceptPaste(type: CGEventType, flags: CGEventFlags, hasLocalKeyWindow: Bool) -> Bool {
+        let modifiers = flags.intersection([.maskCommand, .maskShift, .maskAlternate, .maskControl])
+        return type == .keyDown && modifiers == .maskCommand && !hasLocalKeyWindow
+    }
+
     private func intercept(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             DispatchQueue.main.async { [weak self] in self?.stopStack() }
@@ -150,8 +155,10 @@ final class ClipboardCoordinator: NSObject {
         guard stack.active, event.getIntegerValueField(.eventSourceUserData) != syntheticPasteTag,
               event.getIntegerValueField(.keyboardEventKeycode) == 9 else { return Unmanaged.passUnretained(event) }
         if type == .keyUp, suppressKeyUp { suppressKeyUp = false; return nil }
-        let flags = event.flags.intersection([.maskCommand, .maskShift, .maskAlternate, .maskControl])
-        guard type == .keyDown, flags == .maskCommand, !stack.ids.isEmpty,
+        // A nonactivating tool panel can own typing while another application
+        // remains frontmost. Paste into that panel must stay in its editor.
+        guard Self.shouldInterceptPaste(type: type, flags: event.flags,
+                                        hasLocalKeyWindow: NSApp.keyWindow?.isKeyWindow == true), !stack.ids.isEmpty,
               let app = NSWorkspace.shared.frontmostApplication, app.processIdentifier != getpid(),
               store.settings.enabled, !store.settings.paused else { return Unmanaged.passUnretained(event) }
         // Never replace a newer clipboard that the collector has not inspected yet.
@@ -169,6 +176,7 @@ final class ClipboardCoordinator: NSObject {
 
     private func processPendingPaste() {
         guard stack.active, !advancing, !pendingPastes.isEmpty else { return }
+        guard NSApp.keyWindow?.isKeyWindow != true else { pendingPastes = []; return }
         guard !stack.ids.isEmpty else { pendingPastes = []; return }
         let app = pendingPastes.removeFirst()
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier else {
@@ -236,6 +244,9 @@ final class ClipboardCoordinator: NSObject {
             guard let self = self else { return }
             if fromStack && generation != self.stackGeneration { return }
             guard AXIsProcessTrusted() else { self.advancing = false; self.pendingPastes = []; return }
+            // A tool may have taken keyboard focus after the shortcut was queued.
+            // Its owning application can still appear inactive to NSWorkspace.
+            guard NSApp.keyWindow?.isKeyWindow != true else { self.advancing = false; self.pendingPastes = []; return }
             guard NSPasteboard.general.changeCount == change else {
                 self.advancing = false; self.pendingPastes = []
                 self.report("剪贴板内容在等待期间发生变化，本次自动粘贴已取消。"); return
@@ -265,17 +276,22 @@ final class ClipboardCoordinator: NSObject {
     }
 
     private func requestAccessibility(_ message: String) {
+        guard panel.window.attachedSheet == nil else { return }
         let alert = NSAlert(); alert.messageText = "粘贴到其他应用"; alert.informativeText = message
         alert.addButton(withTitle: "知道了"); alert.addButton(withTitle: "打开系统设置")
-        NSApp.activate(ignoringOtherApps: true)
-        if alert.runModal() == .alertSecondButtonReturn {
-            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+        panel.show()
+        alert.beginSheetModal(for: panel.window) { response in
+            if response == .alertSecondButtonReturn {
+                NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+            }
         }
     }
 
     private func report(_ text: String) {
+        guard panel.window.attachedSheet == nil else { return }
         let alert = NSAlert(); alert.messageText = "RightClick 剪贴板"; alert.informativeText = text
-        NSApp.activate(ignoringOtherApps: true); alert.runModal()
+        panel.show()
+        alert.beginSheetModal(for: panel.window)
     }
 
     private func registerShortcuts() {
@@ -296,7 +312,8 @@ final class ClipboardCoordinator: NSObject {
             guard let event = event, let context = context else { return OSStatus(eventNotHandledErr) }
             var id = EventHotKeyID()
             guard GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
-                                    MemoryLayout<EventHotKeyID>.size, nil, &id) == noErr else { return OSStatus(eventNotHandledErr) }
+                                    MemoryLayout<EventHotKeyID>.size, nil, &id) == noErr,
+                  id.signature == 0x52434C50 else { return OSStatus(eventNotHandledErr) }
             let coordinator = Unmanaged<ClipboardCoordinator>.fromOpaque(context).takeUnretainedValue()
             switch id.id {
             case 1: coordinator.rememberTarget(); coordinator.panel.toggle()
