@@ -24,7 +24,7 @@ svg { flex-shrink: 0; }
 aside { width: var(--sidebar); position: fixed; inset: 0 auto 0 0; background: #efeff2; border-right: 1px solid #00000006; padding: 0 14px; display: flex; flex-direction: column; }
 .dragspace { height: 49px; flex-shrink: 0; }
 .brand { display: flex; align-items: center; gap: 11px; margin: 5px 9px 31px; }
-.logo { width: 39px; height: 39px; flex-shrink: 0; object-fit: contain; }
+.logo { display: block; width: 39px; height: 39px; flex-shrink: 0; overflow: visible; color: #434449; }
 .brand strong { display: block; font-size: 21px; font-weight: 650; letter-spacing: -.8px; line-height: 1.2; }
 .brand span { display: block; font-size: 10px; color: var(--muted); margin-top: 5px; }
 .nav-label { color: #86868b; font-size: 10px; font-weight: 550; margin: 0 13px 10px; }
