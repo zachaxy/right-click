@@ -29,7 +29,7 @@ Apple 官方说明：https://support.apple.com/zh-cn/102445
 Apple 官方说明：https://support.apple.com/zh-cn/guide/mac-help/mtusr003/mac
 
 日常使用
-趁手常驻顶部菜单栏，不显示在 Dock。
+趁手常驻顶部菜单栏。控制台打开或最小化时，Dock 显示趁手图标；关闭控制台后图标隐藏。
 单击顶部图标打开控制台；右键图标可退出应用。
 在控制台“右键菜单”中设置分组与子项的层级。
 新建文件、剪切粘贴、压缩和路径拷贝等操作可以直接从访达执行。

@@ -1,6 +1,6 @@
 [package]
 name = "rustclick"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Chenshou, a local-first macOS desktop toolbox with a Rust engine"
 license = "MIT"
