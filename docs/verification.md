@@ -97,7 +97,13 @@ Rust 测试覆盖：重名不覆盖、路径穿越拒绝、自定义模板副本
 - 保留系统字体、可见键盘焦点、减少动态效果和增强对比度的样式支持。
 - 最终小窗口实测侧栏全部入口可见；恢复原窗口大小后检查通用设置并返回概览。更新前后配置逐项一致，安装版与压缩包内容一致，签名验证通过。
 
-### 隐藏 Dock，仅保留菜单栏入口
+### 控制台打开时的菜单栏焦点
+
+在解锁的 Mac 上打开趁手和 Codex，让两个窗口重叠，开启顶部网速显示。运行 `swift tests/tray-focus-live.swift`，也可传入目标应用和背景应用的 bundle ID。该检查会实际点击菜单栏，需要运行终端具有辅助功能权限。
+
+在 macOS 27.2.1 上，旧版连续点击 4 次均露出 Codex；修复后的安装包连续点击 20 次，前台应用和重叠位置的最前窗口都保持为趁手。另验证了短按、长按、从后台唤起、最小化恢复、关闭后重开以及右键菜单。控制台关闭后，应用仍以菜单栏模式运行。
+
+### 旧版控制台的 Dock 行为
 
 主应用的 `Info.plist` 新增 `LSUIElement=true`，启动时使用 `.accessory`，不再强制切换为 `.regular`。此模式允许打开窗口而不显示 Dock 应用图标，参照 [Apple ActivationPolicy.accessory 文档](https://developer.apple.com/documentation/appkit/nsapplication/activationpolicy-swift.enum/accessory)。顶部图标单击保留 `show()`，右键显示“打开 RustClick／退出 RustClick”；关闭窗口仍只隐藏窗口。
 

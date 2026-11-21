@@ -169,8 +169,23 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
         ]
     }
     func applicationShouldHandleReopen(_ sender:NSApplication,hasVisibleWindows flag:Bool)->Bool{show();return true}
-    func windowShouldClose(_ sender:NSWindow)->Bool{sender.orderOut(nil);return false}
-    @objc func show(){window?.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true)}
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        sender.orderOut(nil)
+        NSApp.setActivationPolicy(.accessory)
+        return false
+    }
+
+    @objc func show() {
+        guard let window else { return }
+        // Own the menu bar while the console is open so a status-item click keeps its focus.
+        if NSApp.activationPolicy() != .regular {
+            NSApp.setActivationPolicy(.regular)
+        }
+        if window.isMiniaturized { window.deminiaturize(nil) }
+        if NSApp.isActive && window.isVisible && window.isKeyWindow { return }
+        if !NSApp.isActive { NSApp.activate(ignoringOtherApps: true) }
+        window.makeKeyAndOrderFront(nil)
+    }
     @objc func trayAction(_ sender:NSStatusBarButton) {
         guard NSApp.currentEvent?.type == .rightMouseUp else { show(); return }
         let menu = NSMenu(title:"趁手")
