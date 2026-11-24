@@ -677,7 +677,11 @@ final class ClipboardPanelController: NSObject, NSWindowDelegate, NSTableViewDat
         guard !selected.isEmpty else { NSSound.beep(); return }
         do {
             try store.write(ids: selected.map { $0.id }, to: copyPasteboard, plainText: plain)
-            note(plain ? "已复制为纯文本，可在目标应用按 ⌘V" : "已复制，可在目标应用按 ⌘V")
+            if pinnedOpen {
+                note(plain ? "已复制为纯文本，可在目标应用按 ⌘V" : "已复制，可在目标应用按 ⌘V")
+            } else {
+                hide()
+            }
         } catch { presentError(error.localizedDescription) }
     }
     @objc private func pasteSelected() { paste(plain: store.settings.pasteAsPlainText == true) }
