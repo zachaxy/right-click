@@ -8,7 +8,7 @@
 
 ## 开始使用
 
-从 [GitHub Releases](https://github.com/zachaxy/right-click/releases/latest) 下载 DMG 安装包，打开后将 `趁手.app` 拖到 Applications（应用程序）文件夹。也可下载 ZIP 解压安装。旧版本安装包仍使用原名。当前提供 Apple Silicon、macOS 14+ 版本，详细步骤见 [安装说明](docs/INSTALL.zh-CN.txt)。
+从 [GitHub Releases](https://github.com/zachaxy/chenshou/releases/latest) 下载 DMG 安装包，打开后将 `趁手.app` 拖到 Applications（应用程序）文件夹。也可下载 ZIP 解压安装。旧版本安装包仍使用原名。当前提供 Apple Silicon、macOS 14+ 版本，详细步骤见 [安装说明](docs/INSTALL.zh-CN.txt)。
 
 通过构建脚本的 `--install` 参数安装时，应用位于个人目录 `~/Applications/趁手.app`，与系统的 `/Applications/` 不同。开发构建产物位于 `dist/趁手.app`。
 
