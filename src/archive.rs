@@ -42,27 +42,28 @@ pub fn compress(paths: &[PathBuf], dir: &Path, format: &str, password: &str) -> 
     files::validate_sources(paths)?;
     let dir = files::directory(dir)?;
     let out = files::unique(&dir, &format!("归档.{format}"))?;
+    let mut names = std::collections::HashSet::new();
+    let mut inputs = Vec::with_capacity(paths.len());
     for p in paths {
         no_links(p)?;
+        let canonical = fs::canonicalize(p)?;
+        ensure!(!dir.starts_with(&canonical), "请将归档保存在所选目录之外");
+        let basename = p.file_name().context("无效文件名")?;
         ensure!(
-            !dir.starts_with(fs::canonicalize(p)?),
-            "请将归档保存在所选目录之外"
+            names.insert(basename.to_string_lossy().to_lowercase()),
+            "选择中存在同名文件，请分开压缩"
         );
+        // Pass an absolute path starting with '/' (so 7zz never treats leading '-' or '@'
+        // as flags or listfiles) and '-spd' (so '*' and '?' are literal filename characters).
+        let parent = files::directory(p.parent().context("无效文件")?)?;
+        inputs.push(parent.join(basename));
     }
     let tmp = dir.join(format!(".rustclick-{}", files::id()));
     fs::create_dir(&tmp)?;
     let result = (|| -> Result<()> {
-        let source = tmp.join("source");
-        fs::create_dir(&source)?;
-        for p in paths {
-            let target = source.join(p.file_name().unwrap());
-            ensure!(!files::exists(&target), "选择中存在同名文件，请分开压缩");
-            files::copy_one(p, &target)?;
-        }
         let archive = tmp.join(format!("result.{format}"));
         let mut c = command()?;
-        c.current_dir(&source)
-            .args(["a", "-y", "-bsp0", "-bso0"])
+        c.args(["a", "-y", "-spd", "-bsp0", "-bso0"])
             .arg(format!("-t{format}"));
         if !password.is_empty() {
             c.arg(format!("-p{password}"));
@@ -72,7 +73,7 @@ pub fn compress(paths: &[PathBuf], dir: &Path, format: &str, password: &str) -> 
                 "-mem=AES256"
             });
         }
-        c.arg("--").arg(&archive).arg(".");
+        c.arg("--").arg(&archive).args(&inputs);
         files::run(&mut c)?;
         files::rename_exclusive(&archive, &out)?;
         Ok(())

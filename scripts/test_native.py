@@ -13,7 +13,7 @@ BUILD.mkdir(exist_ok=True)
 CASES = [
     ("network-speed-image", ["ToolboxIcon.swift", "NetworkSpeedStatusImage.swift"]),
     ("network-speed", ["NetworkSpeedMonitor.swift"]),
-    ("panel-activation", ["ToolPanel.swift", "ClipboardStore.swift", "ClipboardPanel.swift", "ClipboardStack.swift", "ClipboardCoordinator.swift", "TranslationPanel.swift"]),
+    ("panel-activation", ["ToolPanel.swift", "ClipboardStore.swift", "ClipboardPanel.swift", "ClipboardStack.swift", "ClipboardCoordinator.swift", "TranslationPanel.swift", "TranslationCoordinator.swift"]),
     ("translation", ["ToolPanel.swift", "TranslationPanel.swift"]),
     ("input-source", ["InputSourceSettings.swift", "InputSourceCoordinator.swift"]),
     ("english-punctuation", ["EnglishPunctuation.swift"]),

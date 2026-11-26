@@ -422,3 +422,97 @@ fn menu_group_positions_are_independent_and_validated() {
     }
     assert_eq!(e.execute(json!({"cmd":"state"})).unwrap()["config"], config);
 }
+
+#[test]
+fn batch_source_validation_handles_hyphen_siblings_duplicates_and_hundreds_of_files() {
+    let (t, mut e) = setup();
+    let dir = t.path().join("project");
+    let sibling = t.path().join("project-2");
+    let child = dir.join("nested.txt");
+    fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(&sibling).unwrap();
+    fs::write(&child, "nested").unwrap();
+    fs::write(sibling.join("ok.txt"), "ok").unwrap();
+
+    // Even when 'project-2' sorts lexicographically by raw ASCII ('-' < '/') between
+    // 'project' and 'project/nested.txt', component sorting must still reject ancestor+child.
+    assert!(
+        e.execute(json!({"cmd":"info","paths":[&dir,&sibling,&child]}))
+            .is_err()
+    );
+    assert!(
+        e.execute(json!({"cmd":"info","paths":[&child,&child]}))
+            .is_err()
+    );
+    assert!(
+        e.execute(json!({"cmd":"info","paths":[&dir,&sibling]}))
+            .is_ok()
+    );
+
+    let batch_dir = t.path().join("many");
+    fs::create_dir(&batch_dir).unwrap();
+    let many: Vec<_> = (0..400)
+        .map(|i| {
+            let p = batch_dir.join(format!("item-{i:04}.txt"));
+            fs::write(&p, "x").unwrap();
+            p
+        })
+        .collect();
+    let start = std::time::Instant::now();
+    rustclick::files::validate_sources(&many).unwrap();
+    assert!(start.elapsed().as_millis() < 500);
+}
+
+#[test]
+fn direct_7z_compression_preserves_basenames_across_dirs_and_rejects_collisions() {
+    let (t, mut e) = setup();
+    let d1 = t.path().join("d1");
+    let d2 = t.path().join("d2");
+    let out_dir = t.path().join("out");
+    fs::create_dir_all(d1.join("folder/sub")).unwrap();
+    fs::create_dir_all(&d2).unwrap();
+    fs::create_dir_all(&out_dir).unwrap();
+    let dash = d1.join("-leading-dash.txt");
+    let at = d1.join("@list-like.txt");
+    let wild = d2.join("wild*card?.txt");
+    let folder = d1.join("folder");
+    fs::write(&dash, "dash").unwrap();
+    fs::write(&at, "at").unwrap();
+    fs::write(&wild, "wild").unwrap();
+    fs::write(folder.join("sub/inside.txt"), "inside").unwrap();
+
+    let archive = first(
+        &e.execute(json!({
+            "cmd": "archive7z",
+            "paths": [&dash, &at, &wild, &folder],
+            "dir": &out_dir,
+            "format": "7z",
+            "password": ""
+        }))
+        .unwrap(),
+    );
+    let extracted = first(
+        &e.execute(json!({"cmd":"extract_auto","paths":[archive],"dir":&out_dir,"password":""}))
+            .unwrap(),
+    );
+    assert_eq!(fs::read_to_string(extracted.join("-leading-dash.txt")).unwrap(), "dash");
+    assert_eq!(fs::read_to_string(extracted.join("@list-like.txt")).unwrap(), "at");
+    assert_eq!(fs::read_to_string(extracted.join("wild*card?.txt")).unwrap(), "wild");
+    assert_eq!(
+        fs::read_to_string(extracted.join("folder/sub/inside.txt")).unwrap(),
+        "inside"
+    );
+
+    let collide = d2.join("-Leading-Dash.txt");
+    fs::write(&collide, "collide").unwrap();
+    assert!(
+        e.execute(json!({
+            "cmd": "archive7z",
+            "paths": [&dash, &collide],
+            "dir": &out_dir,
+            "format": "7z",
+            "password": ""
+        }))
+        .is_err()
+    );
+}

@@ -177,6 +177,24 @@ private final class ClipboardShortcutEditor: NSObject {
     }
 }
 
+private final class CachedImageThumbnail: NSObject {
+    let image: NSImage
+    let dimensionsText: String
+    init(image: NSImage, width: Int, height: Int) {
+        self.image = image
+        self.dimensionsText = "\(width) × \(height)"
+    }
+}
+
+private final class CachedFilesSummary: NSObject {
+    let namesText: String
+    let countText: String
+    init(urls: [URL]) {
+        self.namesText = urls.map { $0.lastPathComponent }.joined(separator: "\n")
+        self.countText = "\(urls.count) 个文件"
+    }
+}
+
 /// The panel owns presentation only. The application supplies focus restoration and global paste actions.
 final class ClipboardPanelController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSMenuDelegate, NSMenuItemValidation, WKNavigationDelegate {
     let store: ClipboardStore
@@ -216,6 +234,19 @@ final class ClipboardPanelController: NSObject, NSWindowDelegate, NSTableViewDat
     private var quickLookView: QLPreviewView?
     private var previewDirectory: URL?
     private var previewURLs: [URL] = []
+    private let thumbnailCache: NSCache<NSString, CachedImageThumbnail> = {
+        let cache = NSCache<NSString, CachedImageThumbnail>()
+        cache.countLimit = 128
+        cache.totalCostLimit = 48 * 1024 * 1024
+        return cache
+    }()
+    private let filesSummaryCache: NSCache<NSString, CachedFilesSummary> = {
+        let cache = NSCache<NSString, CachedFilesSummary>()
+        cache.countLimit = 256
+        return cache
+    }()
+    private let thumbnailQueue = DispatchQueue(label: "dev.rustclick.clipboard.thumbnail", qos: .userInitiated)
+    private var pendingThumbnails = Set<String>()
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter(); formatter.dateStyle = .medium; formatter.timeStyle = .short
         formatter.locale = Locale(identifier: "zh_CN"); return formatter
@@ -531,23 +562,68 @@ final class ClipboardPanelController: NSObject, NSWindowDelegate, NSTableViewDat
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let id = NSUserInterfaceItemIdentifier("clipboard-row")
         let cell = tableView.makeView(withIdentifier: id, owner: self) as? ClipboardRowView ?? ClipboardRowView()
-        cell.identifier = id; let entry = rows[row]
+        cell.identifier = id
+        let entry = rows[row]
+        let cacheKey = "\(entry.id):\(entry.fingerprint)" as NSString
         var text = entry.text.isEmpty ? entry.title : entry.text
-        if entry.kind == "files" { text = store.fileURLs(id: entry.id).map { $0.lastPathComponent }.joined(separator: "\n") }
+        if entry.kind == "files" {
+            let summary = filesSummaryCache.object(forKey: cacheKey) ?? {
+                let created = CachedFilesSummary(urls: store.fileURLs(id: entry.id))
+                filesSummaryCache.setObject(created, forKey: cacheKey)
+                return created
+            }()
+            text = summary.namesText
+            cell.thumbnail.image = nil
+            cell.hasThumbnail = false
+            cell.count.stringValue = summary.countText
+        } else if entry.kind == "image" {
+            if let cached = thumbnailCache.object(forKey: cacheKey) {
+                cell.thumbnail.image = cached.image
+                cell.hasThumbnail = true
+                cell.count.stringValue = cached.dimensionsText
+            } else {
+                cell.thumbnail.image = nil
+                cell.hasThumbnail = false
+                cell.count.stringValue = "图片"
+                loadThumbnailAsync(for: entry, cacheKey: cacheKey)
+            }
+        } else {
+            cell.thumbnail.image = nil
+            cell.hasThumbnail = false
+            cell.count.stringValue = "\(entry.text.count) 字符"
+        }
         cell.heading.stringValue = text.isEmpty ? typeName(entry.kind) : text
-        cell.thumbnail.image = entry.kind == "image" ? store.image(id: entry.id) : nil
-        cell.hasThumbnail = cell.thumbnail.image != nil
         cell.detail.stringValue = (entry.pinboardIDs.isEmpty ? "" : "★  ") + relativeTime(entry.updatedAt) + (entry.sourceApp.isEmpty ? "" : " · " + entry.sourceApp)
-        if entry.kind == "image", let image = cell.thumbnail.image {
-            cell.count.stringValue = "\(Int(image.size.width)) × \(Int(image.size.height))"
-        } else if entry.kind == "files" { cell.count.stringValue = "\(store.fileURLs(id: entry.id).count) 个文件" }
-        else { cell.count.stringValue = "\(entry.text.count) 字符" }
         cell.ordinal.stringValue = table.selectedRowIndexes.contains(row) ? "✓" : "\(row + 1)"
         cell.cursor.isHidden = row != currentRow
         cell.toolTip = entry.title + "\n" + typeName(entry.kind) + " · " + dateFormatter.string(from: entry.updatedAt)
         cell.setAccessibilityLabel((table.selectedRowIndexes.contains(row) ? "已勾选，" : "") + "第 \(row + 1) 条，" + String(text.prefix(160)))
         cell.needsLayout = true
         return cell
+    }
+    private func loadThumbnailAsync(for entry: ClipboardEntry, cacheKey: NSString) {
+        let rawKey = cacheKey as String
+        guard pendingThumbnails.insert(rawKey).inserted,
+              let url = store.accessiblePayloadURL(id: entry.id) else { return }
+        let entryID = entry.id
+        let fingerprint = entry.fingerprint
+        thumbnailQueue.async { [weak self] in
+            let decoded = ClipboardStore.decodeThumbnail(fromPayloadURL: url)
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.pendingThumbnails.remove(rawKey)
+                guard let decoded else { return }
+                let cached = CachedImageThumbnail(image: decoded.image, width: decoded.width, height: decoded.height)
+                self.thumbnailCache.setObject(cached, forKey: cacheKey, cost: decoded.cost)
+                for (index, current) in self.rows.enumerated() where current.id == entryID && current.fingerprint == fingerprint {
+                    guard let cell = self.table.view(atColumn: 0, row: index, makeIfNecessary: false) as? ClipboardRowView else { continue }
+                    cell.thumbnail.image = cached.image
+                    cell.hasThumbnail = true
+                    cell.count.stringValue = cached.dimensionsText
+                    cell.needsLayout = true
+                }
+            }
+        }
     }
     func tableViewSelectionDidChange(_ notification: Notification) { if !refreshing { updatePreview() } }
     func controlTextDidChange(_ obj: Notification) { currentRow = 0; table.deselectAll(nil); statusNote = nil; refresh() }

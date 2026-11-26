@@ -103,18 +103,30 @@ pub fn run(c: &mut Command) -> Result<String> {
 }
 pub fn validate_sources(paths: &[PathBuf]) -> Result<()> {
     ensure!(!paths.is_empty(), "请先选择文件");
-    for (i, p) in paths.iter().enumerate() {
+    let mut canonical_parents = std::collections::HashMap::<&Path, PathBuf>::new();
+    let mut resolved = Vec::with_capacity(paths.len());
+    for p in paths {
         ensure!(p.is_absolute() && exists(p), "文件不存在：{}", p.display());
-        let parent = directory(p.parent().context("无效文件")?)?;
-        let full = parent.join(p.file_name().context("不能操作磁盘根目录")?);
-        for q in paths.iter().skip(i + 1) {
-            let qp = directory(q.parent().context("无效路径")?)?
-                .join(q.file_name().context("无效路径")?);
-            ensure!(
-                !qp.starts_with(&full) && !full.starts_with(&qp),
-                "不能同时选择文件夹及其子项，或重复选择同一文件"
-            );
-        }
+        let raw_parent = p.parent().context("无效文件")?;
+        let file_name = p.file_name().context("不能操作磁盘根目录")?;
+        let parent = match canonical_parents.get(raw_parent) {
+            Some(cached) => cached.clone(),
+            None => {
+                let dir = directory(raw_parent)?;
+                canonical_parents.insert(raw_parent, dir.clone());
+                dir
+            }
+        };
+        resolved.push(parent.join(file_name));
+    }
+    // PathBuf::cmp orders paths lexicographically by Component, so any duplicate
+    // path or ancestor/descendant pair is guaranteed to become adjacent after sorting.
+    resolved.sort();
+    for pair in resolved.windows(2) {
+        ensure!(
+            !pair[1].starts_with(&pair[0]),
+            "不能同时选择文件夹及其子项，或重复选择同一文件"
+        );
     }
     Ok(())
 }

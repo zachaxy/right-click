@@ -37,7 +37,7 @@ final class RustClickFinderSync:FIFinderSync {
         NSWorkspace.shared.open([requestURL], withApplicationAt:appURL,
                                 configuration:FinderRequestRouting.openConfiguration()) { _, error in
             if let error = error {
-                board.clearContents()
+                board.releaseGlobally()
                 NSLog("趁手请求失败： %@", error.localizedDescription)
             }
         }

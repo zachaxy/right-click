@@ -93,6 +93,23 @@ for (rate, expected) in formats {
 for rate in [Double.nan, Double.infinity, -Double.infinity, -1] {
     check(NetworkSpeedStatusImage.formatRate(rate) == "0 KB/s", "invalid or negative rates must not reach the renderer")
 }
+let idleA = TrayAppearanceState.make(showNetworkSpeed: true, available: true,
+                                     downloadBytesPerSecond: 0, uploadBytesPerSecond: 0, interfaces: ["en0"])
+let idleB = TrayAppearanceState.make(showNetworkSpeed: true, available: true,
+                                     downloadBytesPerSecond: 650, uploadBytesPerSecond: 999.9, interfaces: ["en0"])
+check(idleA == idleB && idleB.hasSameRates(as: idleA),
+      "sub-KB idle fluctuations share an equal TrayAppearanceState so NSStatusItem skips redrawing")
+let dualInterfaceIdle = TrayAppearanceState.make(showNetworkSpeed: true, available: true,
+                                                 downloadBytesPerSecond: 100, uploadBytesPerSecond: 200,
+                                                 interfaces: ["en0", "en5"])
+check(dualInterfaceIdle != idleA && dualInterfaceIdle.hasSameRates(as: idleA),
+      "interface metadata changes update tooltip/accessibility while reusing the rendered rate image")
+let activeSpeed = TrayAppearanceState.make(showNetworkSpeed: true, available: true,
+                                           downloadBytesPerSecond: 12_000, uploadBytesPerSecond: 0, interfaces: ["en0"])
+check(activeSpeed != idleA && !activeSpeed.hasSameRates(as: idleA),
+      "formatted rate changes trigger a fresh image render")
+check(TrayAppearanceState.make(showNetworkSpeed: false, available: true, downloadBytesPerSecond: 99_000) == .iconOnly,
+      "disabling network speed collapses state to iconOnly regardless of sample values")
 let longRate = NetworkSpeedStatusImage.formatRate(99_999_900_000_000_000)
 let cases: [(String, String, String)] = [
     ("maximum KB", "1000 KB/s", "1000 KB/s"),

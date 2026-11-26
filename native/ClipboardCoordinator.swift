@@ -2,8 +2,24 @@ import Cocoa
 import Carbon
 
 final class ClipboardCoordinator: NSObject {
-    let store = ClipboardStore()
-    lazy var panel = ClipboardPanelController(store: store)
+    let store: ClipboardStore
+    init(store: ClipboardStore = ClipboardStore()) {
+        self.store = store
+        super.init()
+    }
+    private var panelInstance: ClipboardPanelController?
+    var hasLoadedPanel: Bool { panelInstance != nil }
+    var panel: ClipboardPanelController {
+        if let existing = panelInstance { return existing }
+        let created = ClipboardPanelController(store: store)
+        created.onPaste = { [weak self] entries, plain in self?.paste(entries, plainText: plain) }
+        created.onStartStack = { [weak self] in self?.toggleStack() }
+        created.onPasteNext = { [weak self] in self?.pasteNext() }
+        created.shortcutWarning = shortcutError
+        created.setStackStatus(active: stack.active, count: stack.ids.count)
+        panelInstance = created
+        return created
+    }
     private(set) var stack = ClipboardStack()
     private var target: NSRunningApplication?
     private var activationObserver: NSObjectProtocol?
@@ -26,9 +42,6 @@ final class ClipboardCoordinator: NSObject {
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
         ) { [weak self] _ in self?.rememberTarget() }
-        panel.onPaste = { [weak self] entries, plain in self?.paste(entries, plainText: plain) }
-        panel.onStartStack = { [weak self] in self?.toggleStack() }
-        panel.onPasteNext = { [weak self] in self?.pasteNext() }
         let previousChange = store.onChange
         store.onChange = { [weak self] in
             previousChange?()
@@ -50,7 +63,7 @@ final class ClipboardCoordinator: NSObject {
     }
 
     func stop() {
-        panel.hide()
+        panelInstance?.hide()
         store.stopMonitoring()
         stopStack()
         if let observer = activationObserver { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
@@ -108,8 +121,8 @@ final class ClipboardCoordinator: NSObject {
         CFRunLoopAddSource(CFRunLoopGetMain(), tapSource, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
         stackGeneration += 1; stack.start(); preparedChange = nil
-        panel.setStackStatus(active: stack.active, count: stack.ids.count)
-        panel.hide()
+        panelInstance?.setStackStatus(active: stack.active, count: stack.ids.count)
+        panelInstance?.hide()
         if let target = target { target.activate(options: []) }
     }
 
@@ -118,7 +131,7 @@ final class ClipboardCoordinator: NSObject {
         stack.stop(); preparedChange = nil
         if let tap = eventTap { CGEvent.tapEnable(tap: tap, enable: false); CFMachPortInvalidate(tap); eventTap = nil }
         if let source = tapSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes); tapSource = nil }
-        panel.setStackStatus(active: stack.active, count: stack.ids.count)
+        panelInstance?.setStackStatus(active: stack.active, count: stack.ids.count)
     }
 
     func reverseStack() { guard !advancing else { return }; stack.reverse(); prepareNext() }
@@ -127,7 +140,7 @@ final class ClipboardCoordinator: NSObject {
         guard stack.active else { return }
         if !store.settings.enabled || store.settings.paused { stopStack(); return }
         stack.discardMissing(Set(store.entries.map(\.id)))
-        panel.setStackStatus(active: stack.active, count: stack.ids.count)
+        panelInstance?.setStackStatus(active: stack.active, count: stack.ids.count)
         guard let id = stack.ids.first else { preparedChange = nil; return }
         guard canWriteStack() else { return }
         do { try store.write(id: id, plainText: store.settings.pasteAsPlainText ?? false); preparedChange = NSPasteboard.general.changeCount }
@@ -194,12 +207,12 @@ final class ClipboardCoordinator: NSObject {
             self.advancing = false
             guard self.stack.active, AXIsProcessTrusted(), self.stack.ids.first == id else { self.stopStack(); return }
             self.stack.consume()
-            self.panel.setStackStatus(active: self.stack.active, count: self.stack.ids.count)
+            self.panelInstance?.setStackStatus(active: self.stack.active, count: self.stack.ids.count)
             // A copy during paste belongs to the user. Let the collector capture it before preparing another item.
             if NSPasteboard.general.changeCount != change {
                 self.pendingPastes = []
                 if self.capturedChange == NSPasteboard.general.changeCount { self.prepareNext(); return }
-                self.panel.setStackStatus(active: self.stack.active, count: self.stack.ids.count)
+                self.panelInstance?.setStackStatus(active: self.stack.active, count: self.stack.ids.count)
                 return
             }
             // Keep the item just delivered on the pasteboard until another paste is requested.
@@ -234,7 +247,7 @@ final class ClipboardCoordinator: NSObject {
             advancing = false
             report("内容已复制。请切换到目标应用后按 ⌘V。"); return
         }
-        panel.hide()
+        panelInstance?.hide()
         app.activate(options: [])
         deliverPaste(to: app, fromStack: fromStack, change: NSPasteboard.general.changeCount, generation: stackGeneration, id: entries[0].id, attempts: 20)
     }
@@ -304,7 +317,7 @@ final class ClipboardCoordinator: NSObject {
         hotKeys.forEach { UnregisterEventHotKey($0) }; hotKeys = []
         if let handler = hotKeyHandler { RemoveEventHandler(handler); hotKeyHandler = nil }
         registeredShortcuts = shortcuts; shortcutError = nil
-        panel.shortcutWarning = nil
+        panelInstance?.shortcutWarning = nil
         guard !shortcuts.isEmpty else { return }
         var event = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         let context = Unmanaged.passUnretained(self).toOpaque()
@@ -325,7 +338,7 @@ final class ClipboardCoordinator: NSObject {
         }, 1, &event, context, &hotKeyHandler)
         guard status == noErr else {
             shortcutError = "无法注册剪贴板快捷键，请从菜单栏打开。"
-            panel.shortcutWarning = shortcutError; return
+            panelInstance?.shortcutWarning = shortcutError; return
         }
         for (offset, name) in ["panel", "stack", "next"].enumerated() {
             guard let shortcut = shortcuts[name] else { continue }
@@ -335,6 +348,6 @@ final class ClipboardCoordinator: NSObject {
             if result == noErr, let reference = reference { hotKeys.append(reference) }
             else { shortcutError = "部分剪贴板快捷键被其他应用占用，可从菜单栏使用。" }
         }
-        panel.shortcutWarning = shortcutError
+        panelInstance?.shortcutWarning = shortcutError
     }
 }

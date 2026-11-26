@@ -81,7 +81,22 @@ func nativeWork(_ req:[String:Any])throws->[String:Any] {
     case "login":if req["enabled"] as? Bool ?? false{try SMAppService.mainApp.register()}else{try SMAppService.mainApp.unregister()};return [:]
     case "apply_settings":controller.apply(req["config"] as? [String:Any] ?? [:]);return [:]
     case "preview":guard let p=paths.first else{throw failure("请选择图片")};let preview=NSWorkspace.shared.urlForApplication(withBundleIdentifier:"com.apple.Preview")!;NSWorkspace.shared.open([p],withApplicationAt:preview,configuration:NSWorkspace.OpenConfiguration());return [:]
-    case "pin":guard let p=paths.first,let image=NSImage(contentsOf:p)else{throw failure("请选择图片")};let size=image.size;let width=min(size.width,500),height=min(size.height*width/max(size.width,1),600);let panel=NSPanel(contentRect:NSRect(x:150,y:150,width:width,height:height),styleMask:[.titled,.closable,.resizable,.utilityWindow],backing:.buffered,defer:false);panel.title=p.lastPathComponent;panel.level = .floating;let view=NSImageView(frame:NSRect(x:0,y:0,width:width,height:height));view.image=image;view.imageScaling = .scaleProportionallyUpOrDown;panel.contentView=view;panel.makeKeyAndOrderFront(nil);controller.panels.append(panel);return [:]
+    case "pin":
+        guard let p = paths.first, let image = NSImage(contentsOf: p) else { throw failure("请选择图片") }
+        let size = image.size
+        let width = min(size.width, 500), height = min(size.height * width / max(size.width, 1), 600)
+        let panel = NSPanel(contentRect: NSRect(x: 150, y: 150, width: width, height: height),
+                            styleMask: [.titled, .closable, .resizable, .utilityWindow], backing: .buffered, defer: false)
+        panel.title = p.lastPathComponent
+        panel.level = .floating
+        panel.isReleasedWhenClosed = false
+        let view = NSImageView(frame: NSRect(x: 0, y: 0, width: width, height: height))
+        view.image = image
+        view.imageScaling = .scaleProportionallyUpOrDown
+        panel.contentView = view
+        controller.retainPinPanel(panel)
+        panel.makeKeyAndOrderFront(nil)
+        return [:]
     case "screenshot":let directory=req["dir"] as? String ?? NSTemporaryDirectory();let dest=URL(fileURLWithPath:directory).appendingPathComponent("截图-\(UUID().uuidString.prefix(8)).png");let process=Process();process.executableURL=URL(fileURLWithPath:"/usr/sbin/screencapture");process.arguments=["-i",dest.path];try process.run();return ["message":"按系统提示选择截图区域，图片将保存至当前目录。","path":dest.path]
     default:throw failure("未知系统操作：\(cmd)")
     }
@@ -97,8 +112,97 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
     let punctuation = EnglishPunctuationMonitor()
     private let networkSpeed = NetworkSpeedMonitor()
     private var networkSample: NetworkSpeedSample?
+    private var lastTrayState: TrayAppearanceState?
+    private var lastSpeedImage: NSImage?
     private var inputSourceSettings = InputSourceSettings()
-    var window:NSWindow!;var web:WKWebView!;var status:NSStatusItem?;var panels=[NSPanel]();var config=[String:Any]();var pending:[[String:Any]]=[];var ready=false;var monitor:Any?;var floatingMenu:NSMenu?;var finderPaths=[String]();var finderDir=""
+    private var webTeardownWorkItem: DispatchWorkItem?
+    private var pinPanelObservers: [ObjectIdentifier: NSObjectProtocol] = [:]
+    var window: NSWindow?
+    var web: WKWebView?
+    var status: NSStatusItem?
+    var panels = [NSPanel]()
+    var config = [String: Any]()
+    var pending: [[String: Any]] = []
+    var ready = false
+    var monitor: Any?
+    var floatingMenu: NSMenu?
+    var finderPaths = [String]()
+    var finderDir = ""
+
+    func retainPinPanel(_ panel: NSPanel) {
+        panels.append(panel)
+        let key = ObjectIdentifier(panel)
+        pinPanelObservers[key] = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification, object: panel, queue: .main
+        ) { [weak self, weak panel] _ in
+            guard let self else { return }
+            if let observer = self.pinPanelObservers.removeValue(forKey: key) {
+                NotificationCenter.default.removeObserver(observer)
+            }
+            if let panel {
+                self.panels.removeAll { $0 === panel }
+            }
+        }
+    }
+
+    @discardableResult
+    private func ensureConsoleLoaded() -> NSWindow {
+        webTeardownWorkItem?.cancel()
+        webTeardownWorkItem = nil
+        if window == nil {
+            let win = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 1120, height: 780),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+                backing: .buffered, defer: false
+            )
+            win.title = "趁手 · 桌面工具箱"
+            win.minSize = NSSize(width: 960, height: 640)
+            win.titleVisibility = .hidden
+            win.titlebarAppearsTransparent = true
+            win.backgroundColor = NSColor(srgbRed: 0.961, green: 0.961, blue: 0.969, alpha: 1)
+            win.delegate = self
+            win.isReleasedWhenClosed = false
+            win.center()
+            win.setFrameAutosaveName("RustClickMain")
+            window = win
+        }
+        if web == nil, let win = window {
+            let conf = WKWebViewConfiguration()
+            conf.userContentController.add(self, name: "rustclick")
+            let webView = WKWebView(frame: .zero, configuration: conf)
+            webView.navigationDelegate = self
+            webView.setValue(false, forKey: "drawsBackground")
+            win.contentView = webView
+            web = webView
+            ready = false
+            let uiDir = Bundle.main.resourceURL!.appendingPathComponent("ui")
+            webView.loadFileURL(uiDir.appendingPathComponent("index.html"), allowingReadAccessTo: uiDir)
+        }
+        return window!
+    }
+
+    private func scheduleWebTeardown() {
+        webTeardownWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self, let window = self.window, !window.isVisible, !window.isMiniaturized else { return }
+            self.teardownWebView()
+        }
+        webTeardownWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: item)
+    }
+
+    private func teardownWebView() {
+        webTeardownWorkItem?.cancel()
+        webTeardownWorkItem = nil
+        guard let web else { return }
+        web.stopLoading()
+        web.navigationDelegate = nil
+        web.configuration.userContentController.removeScriptMessageHandler(forName: "rustclick")
+        window?.contentView = nil
+        self.web = nil
+        self.ready = false
+    }
+
     func applicationDidFinishLaunching(_ notification:Notification){
         networkSpeed.onUpdate = { [weak self] sample in
             self?.networkSample = sample
@@ -108,9 +212,7 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
         let translate = app.insertItem(withTitle:"翻译为中文…",action:#selector(showTranslation),keyEquivalent:"t",at:3)
         translate.keyEquivalentModifierMask = [.command, .shift]
         translate.target = self
-        let conf=WKWebViewConfiguration();conf.userContentController.add(self,name:"rustclick");web=WKWebView(frame:.zero,configuration:conf);web.navigationDelegate=self;web.setValue(false,forKey:"drawsBackground")
-        window=NSWindow(contentRect:NSRect(x:0,y:0,width:1120,height:780),styleMask:[.titled,.closable,.miniaturizable,.resizable,.fullSizeContentView],backing:.buffered,defer:false);window.title="趁手 · 桌面工具箱";window.minSize=NSSize(width:960,height:640);window.titleVisibility = .hidden;window.titlebarAppearsTransparent=true;window.backgroundColor=NSColor(srgbRed:0.961,green:0.961,blue:0.969,alpha:1);window.contentView=web;window.delegate=self;window.isReleasedWhenClosed=false;window.center();window.setFrameAutosaveName("RustClickMain");
-        let url=Bundle.main.resourceURL!.appendingPathComponent("ui/index.html");web.loadFileURL(url,allowingReadAccessTo:Bundle.main.resourceURL!.appendingPathComponent("ui"));if FinderRequestRouting.showsWindowOnLaunch(notification){show()}
+        if FinderRequestRouting.showsWindowOnLaunch(notification) { show() }
         DistributedNotificationCenter.default().addObserver(self,selector:#selector(publish),name:Notification.Name("dev.rustclick.requestConfig"),object:nil)
         worker.async {
             let state = engine(["cmd": "state"])
@@ -124,6 +226,7 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
         translation.start()
     }
     func applicationWillTerminate(_ notification:Notification) {
+        teardownWebView()
         networkSpeed.stop()
         inputSources.stop()
         punctuation.stop()
@@ -131,8 +234,8 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
         translation.stop()
     }
     func webView(_ webView:WKWebView,decidePolicyFor action:WKNavigationAction,decisionHandler:@escaping(WKNavigationActionPolicy)->Void){let url=action.request.url;decisionHandler(url?.isFileURL==true && url!.path.hasPrefix(Bundle.main.resourceURL!.appendingPathComponent("ui").path+"/") ? .allow:.cancel)}
-    func userContentController(_ c:WKUserContentController,didReceive message:WKScriptMessage){guard message.frameInfo.isMainFrame,let body=message.body as? [String:Any],let id=body["id"] as? Int,let req=body["request"] as? [String:Any]else{return};if req["cmd"] as? String == "ready"{ready=true;for v in pending{incoming(v)};pending=[];resolve(id,["ok":true,"data":[:]]);return};worker.async{let result=engine(req);DispatchQueue.main.async{self.resolve(id,result)}}}
-    func resolve(_ id:Int,_ v:[String:Any]){web.evaluateJavaScript("window.__resolve(\(id),\(encode(v)))",completionHandler:nil)}
+    func userContentController(_ c:WKUserContentController,didReceive message:WKScriptMessage){guard message.frameInfo.isMainFrame,let body=message.body as? [String:Any],let id=body["id"] as? Int,let req=body["request"] as? [String:Any]else{return};if req["cmd"] as? String == "ready"{ready=true;let queued=pending;pending=[];for v in queued{incoming(v)};resolve(id,["ok":true,"data":[:]]);return};worker.async{let result=engine(req);DispatchQueue.main.async{self.resolve(id,result)}}}
+    func resolve(_ id:Int,_ v:[String:Any]){web?.evaluateJavaScript("window.__resolve(\(id),\(encode(v)))",completionHandler:nil)}
     func incoming(_ v:[String:Any]) {
         FinderRequestRouting.route(v, execute: { request in
             worker.async {
@@ -148,15 +251,15 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
                 catch { self.finderUI.finish(nil); self.finderUI.result("操作未完成",text:error.localizedDescription,paths:[]) }
             }
         }, present: { request in
-            if !self.ready { self.pending.append(request); return }
             self.show()
-            self.web.evaluateJavaScript("window.receiveFinder(\(encode(request)))",completionHandler:nil)
+            if !self.ready { self.pending.append(request); return }
+            self.web?.evaluateJavaScript("window.receiveFinder(\(encode(request)))",completionHandler:nil)
         })
     }
-    func application(_ application:NSApplication,open urls:[URL]){for url in urls{guard url.scheme=="rustclick",url.host=="request",let id=URLComponents(url:url,resolvingAgainstBaseURL:false)?.queryItems?.first(where:{$0.name=="id"})?.value,UUID(uuidString:id) != nil else{continue};let board=NSPasteboard(name:NSPasteboard.Name("dev.rustclick.request."+id));guard let text=board.string(forType:.string)else{continue};board.clearContents();let req=decode(text);incoming(req)}}
+    func application(_ application:NSApplication,open urls:[URL]){for url in urls{guard url.scheme=="rustclick",url.host=="request",let id=URLComponents(url:url,resolvingAgainstBaseURL:false)?.queryItems?.first(where:{$0.name=="id"})?.value,UUID(uuidString:id) != nil else{continue};let board=NSPasteboard(name:NSPasteboard.Name("dev.rustclick.request."+id));guard let text=board.string(forType:.string)else{continue};board.releaseGlobally();let req=decode(text);incoming(req)}}
     func applicationDidBecomeActive(_ notification:Notification) {
         punctuation.update(bundleIDs: inputSourceSettings.punctuationApps)
-        if ready { web.evaluateJavaScript("window.refreshNativeStatus?.()", completionHandler:nil) }
+        if ready { web?.evaluateJavaScript("window.refreshNativeStatus?.()", completionHandler:nil) }
     }
 
     func inputSourceStatus() -> [String: Any] {
@@ -172,11 +275,12 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         sender.orderOut(nil)
         NSApp.setActivationPolicy(.accessory)
+        scheduleWebTeardown()
         return false
     }
 
     @objc func show() {
-        guard let window else { return }
+        let window = ensureConsoleLoaded()
         // Own the menu bar while the console is open so a status-item click keeps its focus.
         if NSApp.activationPolicy() != .regular {
             NSApp.setActivationPolicy(.regular)
@@ -250,10 +354,14 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
                 status?.button?.action = #selector(trayAction(_:))
                 status?.button?.target = self
                 status?.button?.sendAction(on:[.leftMouseUp,.rightMouseUp])
+                lastTrayState = nil
+                lastSpeedImage = nil
             }
         } else if let status {
             NSStatusBar.system.removeStatusItem(status)
             self.status = nil
+            lastTrayState = nil
+            lastSpeedImage = nil
         }
         if status != nil && config["networkSpeed"] as? Bool == true {
             networkSpeed.start()
@@ -267,9 +375,23 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
         if config["cloudShortcut"] as? Bool ?? false{monitor=NSEvent.addGlobalMonitorForEvents(matching:[.rightMouseDown,.otherMouseDown]){e in if (e.type == .rightMouseDown && e.modifierFlags.contains(.shift)) || e.type == .otherMouseDown{self.cloudMenu()}}}
     }
     private func updateTrayAppearance() {
-        guard let status, let button = status.button else { return }
+        guard let status, let button = status.button else {
+            lastTrayState = nil
+            lastSpeedImage = nil
+            return
+        }
+        let nextState = TrayAppearanceState.make(
+            showNetworkSpeed: config["networkSpeed"] as? Bool == true,
+            available: networkSample?.status == .available,
+            unavailable: networkSample?.status == .unavailable,
+            downloadBytesPerSecond: networkSample?.downloadBytesPerSecond ?? 0,
+            uploadBytesPerSecond: networkSample?.uploadBytesPerSecond ?? 0,
+            interfaces: networkSample?.interfaces ?? []
+        )
+        guard nextState != lastTrayState else { return }
         let hint = "趁手 · 单击打开，右键查看更多"
-        guard config["networkSpeed"] as? Bool == true else {
+        switch nextState {
+        case .iconOnly:
             status.length = NSStatusItem.squareLength
             button.attributedTitle = NSAttributedString(string: "")
             button.imagePosition = .imageOnly
@@ -277,25 +399,21 @@ class AppController:NSObject,NSApplicationDelegate,WKScriptMessageHandler,WKNavi
             button.imageScaling = .scaleProportionallyDown
             button.toolTip = hint
             button.setAccessibilityLabel("趁手")
-            return
+            lastSpeedImage = nil
+        case let .networkSpeed(download, upload, detail):
+            if !nextState.hasSameRates(as: lastTrayState) || lastSpeedImage == nil {
+                let image = NetworkSpeedStatusImage.make(download: download, upload: upload)
+                lastSpeedImage = image
+                button.attributedTitle = NSAttributedString(string: "")
+                button.image = image
+                button.imagePosition = .imageOnly
+                button.imageScaling = .scaleNone
+                status.length = image.size.width
+            }
+            button.toolTip = "\(hint)\n\(detail)"
+            button.setAccessibilityLabel("趁手，\(detail)")
         }
-        let available = networkSample?.status == .available
-        let download = available ? NetworkSpeedStatusImage.formatRate(networkSample!.downloadBytesPerSecond) : "—"
-        let upload = available ? NetworkSpeedStatusImage.formatRate(networkSample!.uploadBytesPerSecond) : "—"
-        let image = NetworkSpeedStatusImage.make(download: download, upload: upload)
-        button.attributedTitle = NSAttributedString(string: "")
-        button.image = image
-        button.imagePosition = .imageOnly
-        button.imageScaling = .scaleNone
-        status.length = image.size.width
-        let detail: String
-        if available, let sample = networkSample {
-            detail = "下载 \(download) · 上传 \(upload)\n接口：\(sample.interfaces.joined(separator: ", "))（含局域网流量）"
-        } else {
-            detail = networkSample?.status == .unavailable ? "暂无法读取网速，请检查网络连接" : "正在采样网速…"
-        }
-        button.toolTip = "\(hint)\n\(detail)"
-        button.setAccessibilityLabel("趁手，\(detail)")
+        lastTrayState = nextState
     }
     func cloudMenu(){do{let selected=try apple("tell application \"Finder\"\nset output to {}\nrepeat with itemRef in (get selection)\nset end of output to POSIX path of (itemRef as alias)\nend repeat\nreturn output\nend tell");finderPaths=(1...max(selected.numberOfItems,1)).compactMap{selected.atIndex($0)?.stringValue};finderDir=(try? apple("tell application \"Finder\" to get POSIX path of (target of front Finder window as alias)").stringValue) ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop").path;let m=NSMenu(title:"趁手");for (title,cmd) in [("新建文件…","create"),("剪切","cut"),("粘贴","paste"),("复制到…","copy"),("移动到…","move"),("拷贝路径","copy_path"),("文件信息","info"),("图片转换…","convert"),("打开操作台","workbench")]{let item=NSMenuItem(title:title,action:#selector(cloudAction(_:)),keyEquivalent:"");item.target=self;item.representedObject=cmd;m.addItem(item)};floatingMenu=m;m.popUp(positioning:nil,at:NSEvent.mouseLocation,in:nil)}catch{finderUI.result("无法读取访达选择",text:error.localizedDescription,paths:[])}}
     @objc func cloudAction(_ item:NSMenuItem){incoming(["cmd":item.representedObject as? String ?? "workbench","paths":finderPaths,"dir":finderDir])}

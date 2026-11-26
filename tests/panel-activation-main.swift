@@ -142,6 +142,18 @@ check(!ClipboardCoordinator.shouldInterceptPaste(type: .keyUp, flags: .maskComma
       "releasing Cmd-V never starts another paste operation")
 check(app.activationPolicy() == .prohibited && !store.settings.enabled,
       "isolated activation checks keep application activation and clipboard capture disabled")
+let lazyClipboard = ClipboardCoordinator(store: ClipboardStore(directory: directory, monitorPasteboard: board))
+let lazyTranslation = TranslationCoordinator()
+check(!lazyClipboard.hasLoadedPanel && !lazyTranslation.hasLoadedPanel,
+      "coordinators do not instantiate AppKit/SwiftUI panels on init")
+lazyClipboard.start()
+lazyTranslation.start()
+check(!lazyClipboard.hasLoadedPanel && !lazyTranslation.hasLoadedPanel,
+      "starting background monitoring and hotkeys keeps clipboard and translation panels uninstantiated")
+lazyClipboard.stop()
+lazyTranslation.stop()
+check(!lazyClipboard.hasLoadedPanel && !lazyTranslation.hasLoadedPanel,
+      "stopping coordinators does not instantiate never-opened panels")
 translation.hide()
 clipboard.hide()
 board.releaseGlobally()

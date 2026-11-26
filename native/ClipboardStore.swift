@@ -1,5 +1,6 @@
 import Cocoa
 import CryptoKit
+import ImageIO
 import Vision
 
 struct ClipboardRepresentation: Codable {
@@ -149,8 +150,20 @@ final class ClipboardStore {
         try writeData(encoder.encode(payload), to: payloadURL(id))
     }
 
+    private func isEntryAccessible(id: String) -> Bool {
+        guard let entry = state.entries.first(where: { $0.id == id }) else { return false }
+        guard settings.retentionDays > 0, entry.pinboardIDs.isEmpty else { return true }
+        let oldest = Date().addingTimeInterval(-Double(settings.retentionDays) * 86400)
+        return entry.updatedAt >= oldest
+    }
+
+    func accessiblePayloadURL(id: String) -> URL? {
+        guard isEntryAccessible(id: id) else { return nil }
+        return try? payloadURL(id)
+    }
+
     func loadPayload(id: String) throws -> [[ClipboardRepresentation]] {
-        guard entries.contains(where: { $0.id == id }) else { throw error("此剪贴板条目已不存在。") }
+        guard isEntryAccessible(id: id) else { throw error("此剪贴板条目已不存在。") }
         return try PropertyListDecoder().decode([[ClipboardRepresentation]].self, from: Data(contentsOf: payloadURL(id)))
     }
 
@@ -171,6 +184,7 @@ final class ClipboardStore {
         }
         expireHistoryIfNeeded()
         let t = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in self?.poll() }
+        t.tolerance = 0.15
         timer = t
         RunLoop.main.add(t, forMode: .common)
     }
@@ -528,6 +542,69 @@ final class ClipboardStore {
         guard let payload = try? loadPayload(id: id) else { return nil }
         for representation in payload.flatMap({ $0 }) where [NSPasteboard.PasteboardType.png.rawValue, NSPasteboard.PasteboardType.tiff.rawValue, NSPasteboard.PasteboardType.pdf.rawValue].contains(representation.type) {
             if let image = NSImage(data: representation.data) { return image }
+        }
+        return nil
+    }
+
+    static func decodeThumbnail(fromPayloadURL url: URL, maxPixelSize: Int = 960) -> (image: NSImage, width: Int, height: Int, cost: Int)? {
+        guard let payload = try? PropertyListDecoder().decode([[ClipboardRepresentation]].self, from: Data(contentsOf: url)) else {
+            return nil
+        }
+        let imageTypes: Set<String> = [
+            NSPasteboard.PasteboardType.png.rawValue,
+            NSPasteboard.PasteboardType.tiff.rawValue,
+            NSPasteboard.PasteboardType.pdf.rawValue
+        ]
+        for representation in payload.flatMap({ $0 }) where imageTypes.contains(representation.type) {
+            if representation.type != NSPasteboard.PasteboardType.pdf.rawValue,
+               let source = CGImageSourceCreateWithData(representation.data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+               let rawWidth = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.doubleValue,
+               let rawHeight = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.doubleValue,
+               rawWidth > 0, rawHeight > 0 {
+                let orientation = (properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1
+                let swapped = (5...8).contains(orientation)
+                let pixelWidth = swapped ? rawHeight : rawWidth
+                let pixelHeight = swapped ? rawWidth : rawHeight
+                let dpiX = (properties[swapped ? kCGImagePropertyDPIHeight : kCGImagePropertyDPIWidth] as? NSNumber)?.doubleValue ?? 72
+                let dpiY = (properties[swapped ? kCGImagePropertyDPIWidth : kCGImagePropertyDPIHeight] as? NSNumber)?.doubleValue ?? 72
+                let pointWidth = dpiX > 0 ? pixelWidth * 72.0 / dpiX : pixelWidth
+                let pointHeight = dpiY > 0 ? pixelHeight * 72.0 / dpiY : pixelHeight
+                let options: [CFString: Any] = [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceShouldCacheImmediately: true,
+                    kCGImageSourceThumbnailMaxPixelSize: max(64, maxPixelSize)
+                ]
+                if let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) {
+                    let size = NSSize(width: max(1, pointWidth), height: max(1, pointHeight))
+                    let thumb = NSImage(cgImage: cgImage, size: size)
+                    let cost = max(1, cgImage.bytesPerRow * cgImage.height)
+                    return (thumb, Int(size.width), Int(size.height), cost)
+                }
+            }
+            if let fallback = NSImage(data: representation.data), fallback.size.width > 0, fallback.size.height > 0 {
+                let targetHeight = min(fallback.size.height, CGFloat(maxPixelSize) / 2)
+                let scale = targetHeight / fallback.size.height
+                let renderSize = NSSize(width: max(1, round(fallback.size.width * scale)),
+                                        height: max(1, round(fallback.size.height * scale)))
+                let rendered = NSImage(size: fallback.size)
+                if let rep = NSBitmapImageRep(
+                    bitmapDataPlanes: nil, pixelsWide: max(1, Int(renderSize.width * 2)),
+                    pixelsHigh: max(1, Int(renderSize.height * 2)), bitsPerSample: 8, samplesPerPixel: 4,
+                    hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+                ) {
+                    rep.size = fallback.size
+                    NSGraphicsContext.saveGraphicsState()
+                    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+                    fallback.draw(in: NSRect(origin: .zero, size: fallback.size))
+                    NSGraphicsContext.restoreGraphicsState()
+                    rendered.addRepresentation(rep)
+                    let cost = max(1, rep.bytesPerRow * rep.pixelsHigh)
+                    return (rendered, Int(fallback.size.width), Int(fallback.size.height), cost)
+                }
+                return (fallback, Int(fallback.size.width), Int(fallback.size.height), representation.data.count)
+            }
         }
         return nil
     }

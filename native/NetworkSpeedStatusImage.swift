@@ -1,8 +1,45 @@
 import Cocoa
 import CoreText
 
+/// Value-equatable snapshot of the menu bar item's visual and accessibility state,
+/// allowing 1 Hz timer updates to skip NSStatusItem redraws when the formatted output is unchanged.
+enum TrayAppearanceState: Equatable {
+    case iconOnly
+    case networkSpeed(download: String, upload: String, detail: String)
+
+    static func make(showNetworkSpeed: Bool, available: Bool, unavailable: Bool = false,
+                     downloadBytesPerSecond: Double = 0, uploadBytesPerSecond: Double = 0,
+                     interfaces: [String] = []) -> TrayAppearanceState {
+        guard showNetworkSpeed else { return .iconOnly }
+        let download = available ? NetworkSpeedStatusImage.formatRate(downloadBytesPerSecond) : "—"
+        let upload = available ? NetworkSpeedStatusImage.formatRate(uploadBytesPerSecond) : "—"
+        let detail: String
+        if available {
+            detail = "下载 \(download) · 上传 \(upload)\n接口：\(interfaces.joined(separator: ", "))（含局域网流量）"
+        } else {
+            detail = unavailable ? "暂无法读取网速，请检查网络连接" : "正在采样网速…"
+        }
+        return .networkSpeed(download: download, upload: upload, detail: detail)
+    }
+
+    func hasSameRates(as other: TrayAppearanceState?) -> Bool {
+        guard case let .networkSpeed(d1, u1, _) = self,
+              case let .networkSpeed(d2, u2, _)? = other else { return false }
+        return d1 == d2 && u1 == u2
+    }
+}
+
 /// Draw both rows in one centered template image, rather than a multiline button title.
 enum NetworkSpeedStatusImage {
+    private static let font = NSFont.systemFont(ofSize: 9, weight: .light)
+    private static let attributes: [NSAttributedString.Key: Any] = [
+        .font: font,
+        NSAttributedString.Key(kCTForegroundColorAttributeName as String): NSColor.black.cgColor
+    ]
+    private static let referenceLine = CTLineCreateWithAttributedString(
+        NSAttributedString(string: "999.9 KB/s", attributes: attributes)
+    )
+
     // Stats' two-row layout uses a 7 pt icon column and a 48 pt rate column.
     // https://github.com/exelban/stats/blob/3e97046d7032c514fe631812b2a3ed36122a706b/Kit/Widgets/Speed.swift#L338-L401
     // Prefix our 14 pt app icon, with Stats' 2 pt combined-widget spacing/margins.
@@ -23,11 +60,6 @@ enum NetworkSpeedStatusImage {
     }
 
     static func make(download: String, upload: String) -> NSImage {
-        let font = NSFont.systemFont(ofSize: 9, weight: .light)
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            NSAttributedString.Key(kCTForegroundColorAttributeName as String): NSColor.black.cgColor
-        ]
         let lines = [download, upload].map {
             CTLineCreateWithAttributedString(NSAttributedString(string: $0, attributes: attributes))
         }
@@ -44,8 +76,7 @@ enum NetworkSpeedStatusImage {
 
             // A shared reference baseline keeps the rows still when digits/units change.
             context.textPosition = .zero
-            let reference = CTLineCreateWithAttributedString(NSAttributedString(string: "999.9 KB/s", attributes: attributes))
-            let baselineOffset = CTLineGetImageBounds(reference, context).midY
+            let baselineOffset = CTLineGetImageBounds(referenceLine, context).midY
             drawRow(lines[0], rightEdge: size.width - 2, centerY: 16, down: true,
                     baselineOffset: baselineOffset, context: context)
             drawRow(lines[1], rightEdge: size.width - 2, centerY: 6, down: false,

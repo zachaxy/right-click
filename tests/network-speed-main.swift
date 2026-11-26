@@ -70,6 +70,36 @@ func mibResponse(name: String, incoming: UInt64, outgoing: UInt64) -> ifmibdata 
     return data
 }
 let responseSize = MemoryLayout<ifmibdata>.size
+var enumerations = 0
+var simulatedStaleOnce = false
+let cachedReader = CachedNetworkSpeedReader(
+    enumerate: {
+        enumerations += 1
+        return [(name: "en0", index: UInt32(enumerations == 1 ? 1 : 2)), (name: "en1", index: 9)]
+    },
+    readTarget: { name, index in
+        if name == "en1" { return .inactive }
+        if simulatedStaleOnce {
+            simulatedStaleOnce = false
+            return .stale
+        }
+        return .active(counter(name, index: index, download: UInt64(index * 100), upload: UInt64(index * 50)))
+    }
+)
+check(cachedReader.read()?.map(\.index) == [1] && enumerations == 1, "initial read enumerates active physical targets once")
+check(cachedReader.read()?.map(\.index) == [1] && cachedReader.read()?.map(\.index) == [1] && enumerations == 1,
+      "steady-state ticks reuse cached BSD interface indices without re-enumerating IOKit/SystemConfiguration")
+simulatedStaleOnce = true
+check(cachedReader.read()?.map(\.index) == [2] && enumerations == 2,
+      "a stale sysctl index automatically re-enumerates once and recovers")
+cachedReader.invalidate()
+check(cachedReader.read()?.map(\.index) == [2] && enumerations == 3,
+      "SystemConfiguration change invalidation forces fresh enumeration on the next tick")
+let permanentlyStale = CachedNetworkSpeedReader(
+    enumerate: { [(name: "en0", index: 1)] },
+    readTarget: { _, _ in .stale }
+)
+check(permanentlyStale.read() == nil, "persistent stale sysctl failure still reports unavailable")
 var response = mibResponse(name: "en0", incoming: large + 7, outgoing: large + 9)
 let converted = NetworkSpeedReader.counter(from: response, length: responseSize, name: "en0", index: 1)
 check(converted?.receivedBytes == large + 7 && converted?.sentBytes == large + 9,

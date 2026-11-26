@@ -90,6 +90,28 @@ check(table.selectedRowIndexes.isEmpty && pasted.count == 1, "clearing checked r
 
 selectTab("图像")
 check(table.numberOfRows == 1 && hasSize(800, 600), "image filtering cannot shrink the window")
+if let imageEntry = store.entries.first(where: { $0.kind == "image" }) {
+    check(descendants(table).compactMap { $0 as? NSTextField }.contains { $0.stringValue == "240 × 80" },
+          "async thumbnail loader populates dimensions on the visible image cell")
+    try store.rotateImage(id: imageEntry.id)
+    settle()
+    check(descendants(table).compactMap { $0 as? NSTextField }.contains { $0.stringValue == "80 × 240" },
+          "rotating an image invalidates its fingerprint-keyed thumbnail cache and updates dimensions")
+}
+let largeImage = CGContext(data: nil, width: 2400, height: 1200, bitsPerComponent: 8, bytesPerRow: 0,
+                           space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+let largePNG = NSBitmapImageRep(cgImage: largeImage.makeImage()!).representation(using: .png, properties: [:])!
+let largeURL = directory.appendingPathComponent("large-thumb-fixture.plist")
+let encodedPayload = try PropertyListEncoder().encode([[ClipboardRepresentation(type: NSPasteboard.PasteboardType.png.rawValue, data: largePNG)]])
+try encodedPayload.write(to: largeURL)
+if let decoded = ClipboardStore.decodeThumbnail(fromPayloadURL: largeURL, maxPixelSize: 960),
+   let cgThumb = decoded.image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+    check(decoded.width == 2400 && decoded.height == 1200 && cgThumb.width <= 960 && cgThumb.height <= 960,
+          "large clipboard images downsample their backing bitmap while preserving original point dimensions")
+} else {
+    check(false, "decodeThumbnail decodes large PNG payload")
+}
+try? FileManager.default.removeItem(at: largeURL)
 selectTab("收藏"); key(36, "\r")
 check(table.numberOfRows == 1 && pasted.map { $0.id } == [pinned.id] && hasSize(800, 600), "favorites tab filters and pastes its saved item")
 selectTab("全部"); searchFor("Meeting checklist"); key(36, "\r")
